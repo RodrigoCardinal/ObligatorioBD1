@@ -11,3 +11,5 @@ def home():
 # Ejecutar el servidor
 if __name__ == '__main__':
     app.run(debug=True)
+
+# Nota: Asegúrate de tener un archivo 'index.html' en una carpeta llamada 'templates' en el mismo directorio que este script.
