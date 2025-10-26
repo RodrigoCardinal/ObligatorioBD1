@@ -50,8 +50,8 @@ INSERT INTO participante_programa_academico (id_alumno_programa, ci_participante
 
 -- Tabla: sala
 INSERT INTO sala (nombre_sala, edificio, capacidad, tipo_sala) VALUES
-('Lab A', 'Edificio de Ingeniería', 30, 'grado'),
-('Sala 101', 'Edificio Central', 50, 'grado'),
+('Lab A', 'Edificio de Ingeniería', 30, 'libre'),
+('Sala 101', 'Edificio Central', 50, 'libre'),
 ('Aula Magna', 'Edificio Central', 100, 'libre'),
 ('Sala Posgrado 1', 'Campus Punta del Este', 25, 'posgrado'),
 ('Sala Docente 2', 'Edificio de Ingeniería', 10, 'docente');
