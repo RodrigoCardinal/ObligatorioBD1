@@ -57,11 +57,22 @@ INSERT INTO sala (nombre_sala, edificio, capacidad, tipo_sala) VALUES
 ('Sala Docente 2', 'Edificio de Ingeniería', 10, 'docente');
 
 -- Tabla: turno
-INSERT INTO turno (id_turno, hora_inicio, hora_fin) VALUES
-(1, '08:00', '10:00'),
-(2, '10:00', '12:00'),
-(3, '14:00', '16:00'),
-(4, '16:00', '18:00');
+INSERT INTO turno (hora_inicio, hora_fin) VALUES
+('08:00', '9:00'),
+('9:00', '10:00'),
+('10:00', '11:00'),
+('11:00', '12:00'),
+('12:00', '13:00'),
+('13:00', '14:00'),
+('14:00', '15:00'),
+('15:00', '16:00'),
+('16:00', '17:00'),
+('17:00', '18:00'),
+('18:00', '19:00'),
+('19:00', '20:00'),
+('20:00', '21:00'),
+('21:00', '22:00'),
+('22:00', '23:00');
 
 -- Tabla: reserva
 INSERT INTO reserva (id_reserva, nombre_sala, edificio, fecha, id_turno, estado) VALUES
