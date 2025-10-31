@@ -89,3 +89,10 @@ INSERT INTO sancion_participante (ci_participante, fecha_inicio, fecha_fin) VALU
 (51293487, '2025-09-05', '2025-09-15'),
 (49382716, '2025-09-10', '2025-09-20'),
 (52349872, '2025-09-08', '2025-09-18');
+
+
+-- Tabla: invitados
+INSERT INTO invitados(ci_invitado,responsable_ci,nombre_invitado,apellido_invitado,email,fecha,hora_inicio,hora_fin) VALUES 
+(43459814,50128394,'Julian','Perez','julian.perez@gmail.com','2025-09-01','08:00','9:00'),
+(56784229,51293487,'Ana','Gonzalez','ana.gonzalez@gmail.com','2025-09-05','11:00','12:00'),
+(93245881,48927153,'Juliana','Mendez','juliana.mendez@gmail.com','2025-09-02','08:00','09:00');
