@@ -6,10 +6,13 @@ app = Flask(__name__)
 # Ruta principal
 @app.route('/')
 def home():
-    return render_template('index.html')  # Muestra la página HTML
+    return render_template('login.html')  # Muestra la página HTML
+
+# Ruta para recuperación de contraseña
+@app.route('/recuperar_contraseña')
+def recuperar_contraseña():
+    return "Página de recuperación (en construcción)"
 
 # Ejecutar el servidor
 if __name__ == '__main__':
     app.run(debug=True)
-
-# Nota: Asegúrate de tener un archivo 'index.html' en una carpeta llamada 'templates' en el mismo directorio que este script.
