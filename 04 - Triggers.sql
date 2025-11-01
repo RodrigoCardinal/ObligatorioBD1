@@ -44,3 +44,33 @@ begin
 end;
 //
 
+#Si no hubo asistencia a la reserva, sanción de dos meses para todos los participantes de la misma
+DELIMITER //
+
+CREATE TRIGGER aplica_sancion
+    AFTER UPDATE ON reserva
+    FOR EACH ROW
+BEGIN
+    DECLARE bool_aplica_sancion BOOL DEFAULT FALSE;
+    DECLARE reserva_sin_asistencia INT;
+
+    -- Verificar si la reserva actual cambió a 'sin asistencia'
+    IF NEW.estado = 'sin asistencia' THEN
+        SET bool_aplica_sancion = TRUE;
+    END IF;
+
+    -- Si aplica sanción
+    IF bool_aplica_sancion THEN
+        SET reserva_sin_asistencia = NEW.id_reserva;
+
+        -- Insertar sanción para todos los participantes de esa reserva
+        INSERT INTO ObligatorioBD1.sancion_participante (ci_participante, fecha_inicio, fecha_fin)
+        SELECT rp.ci_participante,
+               NOW(),
+               DATE_ADD(NOW(), INTERVAL 2 MONTH)
+        FROM reserva_participante rp
+        WHERE rp.id_reserva = reserva_sin_asistencia;
+    END IF;
+END //
+
+DELIMITER ;
