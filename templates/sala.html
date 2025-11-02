@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}{{ sala.nombre_sala }} | Sistema de Salas{% endblock %}
+
+{% block hero_title %}
+  <h1 class="hero-title mb-1">{{ sala.nombre_sala }}</h1>
+  <p class="hero-sub mb-0">Edificio {{ sala.edificio }} · Capacidad {{ sala.capacidad }} · {{ sala.tipo_sala }}</p>
+{% endblock %}
+
+{% block content %}
+{% set slug = (sala.nombre_sala|lower
+                |replace(' ', '')
+                |replace('á','a')|replace('é','e')|replace('í','i')|replace('ó','o')|replace('ú','u')
+                |replace('ñ','n')) %}
+
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card"><div class="card-body">
+      <picture>
+        <source srcset="{{ url_for('static', filename='assets/Salas/' ~ slug ~ '.webp') }}" type="image/webp">
+        <source srcset="{{ url_for('static', filename='assets/Salas/' ~ slug ~ '.jpg') }}" type="image/jpeg">
+        <img class="room-cover"
+             src="{{ url_for('static', filename='assets/Salas/' ~ slug ~ '.jpeg') }}"
+             alt="Imagen de {{ sala.nombre_sala }}">
+      </picture>
+
+      <hr>
+      <h5 class="card-title mb-3">Información</h5>
+      <p><strong>Edificio:</strong> {{ sala.edificio }}</p>
+      <p><strong>Capacidad:</strong> {{ sala.capacidad }} personas</p>
+      <p><strong>Tipo:</strong> {{ sala.tipo_sala }}</p>
+
+      <p class="mb-1"><strong>Recursos:</strong></p>
+      <ul class="mb-0">
+        {% for r in recursos %}<li>{{ r }}</li>{% else %}<li class="text-muted">—</li>{% endfor %}
+      </ul>
+    </div></div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card mb-3"><div class="card-body">
+      <h5 class="card-title">Disponibilidad del día (1h)</h5>
+      <div class="d-grid gap-2">
+        {% for h in horarios %}
+          <button class="btn btn-outline-secondary" {% if h.estado != 'Libre' %}disabled{% endif %}>
+            {{ h.hora_inicio }}–{{ h.hora_fin }} ({{ h.estado }})
+          </button>
+        {% else %}
+          <p class="text-muted mb-0">No hay franjas definidas.</p>
+        {% endfor %}
+      </div>
+    </div></div>
+
+    <a class="btn btn-primary w-100"
+       href="{{ url_for('reservas_crear', edificio=sala.edificio, nombre_sala=sala.nombre_sala) }}">
+      Reservar esta sala
+    </a>
+  </div>
+</div>
+{% endblock %}

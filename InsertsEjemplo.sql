@@ -1,5 +1,5 @@
 USE ObligatorioBD1;
-
+UPDATE login SET contraseña = MD5(contraseña); 
 -- Tabla: login
 INSERT INTO login (correo, contraseña) VALUES
 ('juan.perez@ucu.edu.uy', 'Jperez#2025!'),
@@ -96,4 +96,7 @@ INSERT INTO invitados(ci_invitado,responsable_ci,nombre_invitado,apellido_invita
 (43459814,50128394,'Julian','Perez','julian.perez@gmail.com','2025-09-01','08:00','9:00'),
 (56784229,51293487,'Ana','Gonzalez','ana.gonzalez@gmail.com','2025-09-05','11:00','12:00'),
 (93245881,48927153,'Juliana','Mendez','juliana.mendez@gmail.com','2025-09-02','08:00','09:00');
->>>>>>>>> Temporary merge branch 2
+
+UPDATE login
+SET `contraseña` = MD5(`contraseña`)
+WHERE LENGTH(`contraseña`) <> 32;

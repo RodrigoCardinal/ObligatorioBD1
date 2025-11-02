@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Recuperar contraseña | Sistema de Salas{% endblock %}
+
+{% block hero_title %}
+  <h1 class="hero-title mb-1">Recuperar contraseña</h1>
+  <p class="hero-sub mb-0">Ingresá tu correo institucional para recibir el enlace</p>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-body">
+        <form method="post" action="{{ url_for('recuperar_contraseña') }}" novalidate>
+          <div class="mb-3">
+            <label class="form-label" for="correo">Correo</label>
+            <input id="correo" type="email" name="correo" class="form-control" required>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary" type="submit">Enviar enlace</button>
+            <a href="{{ url_for('login') }}" class="btn btn-outline-secondary">Volver al login</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

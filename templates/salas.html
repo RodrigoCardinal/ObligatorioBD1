@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Salas | Sistema de Salas{% endblock %}
+
+{% block hero_title %}
+  <h1 class="hero-title mb-1">Salas disponibles</h1>
+  <p class="hero-sub mb-0">Filtrá por edificio, tipo y capacidad</p>
+{% endblock %}
+
+{% block content %}
+<form class="row g-3 mb-3" method="get" action="{{ url_for('salas_listado') }}" aria-label="Filtros de salas">
+  <div class="col-md-4">
+    <label class="form-label" for="f-edificio">Edificio</label>
+    <select id="f-edificio" name="edificio" class="form-select">
+      <option value="">Todos</option>
+      {% for e in edificios %}
+        <option value="{{ e }}" {{ 'selected' if request.args.get('edificio')==e else '' }}>{{ e }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="col-md-4">
+    <label class="form-label" for="f-tipo">Tipo</label>
+    <select id="f-tipo" name="tipo_sala" class="form-select">
+      <option value="">Todos</option>
+      {% for t in tipos %}
+        <option value="{{ t }}" {{ 'selected' if request.args.get('tipo_sala')==t else '' }}>{{ t }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="col-md-4">
+    <label class="form-label" for="f-cap">Capacidad mínima</label>
+    <input id="f-cap" name="cap_min" type="number" class="form-control" min="0" value="{{ request.args.get('cap_min','') }}">
+  </div>
+
+  <div class="col-12 d-flex gap-2">
+    <button class="btn btn-primary" type="submit">Filtrar</button>
+    <a class="btn btn-outline-secondary" href="{{ url_for('salas_listado') }}">Limpiar</a>
+  </div>
+</form>
+
+<h2 class="section-title visually-hidden">Resultados</h2>
+<div class="row grid-cards">
+  {% for s in salas %}
+    {% set nombre = s.nombre_sala.lower() %}
+    {% if 'aula magna' in nombre %}
+      {% set imagen = 'assets/Salas/AulaMagna.jpeg' %}
+    {% elif 'sala 101' in nombre %}
+      {% set imagen = 'assets/Salas/Salon101.jpeg' %}
+    {% elif 'posgrado' in nombre %}
+      {% set imagen = 'assets/Salas/SalaPosgrado.webp' %}
+    {% elif 'lab' in nombre %}
+      {% set imagen = 'assets/Salas/Laboratorio.jpg' %}
+    {% elif 'docente' in nombre %}
+      {% set imagen = 'assets/Salas/sala-de-profesores.jpg' %}
+    {% else %}
+      {% set imagen = 'assets/Salas/_default.jpg' %}
+    {% endif %}
+
+    <div class="col-md-4">
+      <div class="card-media h-100">
+        <img class="thumb"
+             src="{{ url_for('static', filename=imagen) }}"
+             alt="Imagen de {{ s.nombre_sala }}">
+
+        <div class="body">
+          <div class="d-flex justify-content-between align-items-start mb-1">
+            <h5 class="mb-1">{{ s.nombre_sala }}</h5>
+            <span class="chip">{{ s.tipo_sala }}</span>
+          </div>
+          <p class="mb-1 text-muted">Edificio: {{ s.edificio }}</p>
+          <p class="mb-3 text-muted">Capacidad: {{ s.capacidad }}</p>
+          <a href="{{ url_for('sala_detalle', edificio=s.edificio, nombre_sala=s.nombre_sala) }}" class="btn btn-primary w-100">Explorar</a>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="col-12"><p class="text-muted">No hay salas que coincidan con los filtros.</p></div>
+  {% endfor %}
+</div>
+{% endblock %}
