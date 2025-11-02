@@ -4,7 +4,8 @@ USE ObligatorioBD1;
 
 CREATE TABLE login(
     correo VARCHAR(30) PRIMARY KEY,
-    contraseña VARCHAR(50)
+    contraseña VARCHAR(50),
+    es_administrador BOOLEAN
 );
 
 CREATE TABLE participante (
