@@ -51,12 +51,11 @@ join reserva_participante rp on ppa.ci_participante = rp.ci_participante
 group by ppa.rol;
 
 #Cantidad de sanciones para profesores y alumnos (grado y posgrado)
-select ppa.rol,  pa.tipo, count(DISTINCT sp.ci_participante) as CantSanciones
+select ppa.rol, count(DISTINCT sp.ci_participante) as CantSanciones
 from participante_programa_academico ppa
-join programa_academico pa on ppa.nombre_programa = pa.nombre_programa
 join reserva_participante rp on ppa.ci_participante = rp.ci_participante
 join sancion_participante sp on rp.ci_participante = sp.ci_participante
-group by ppa.rol, pa.tipo;
+group by ppa.rol;
 
 #Porcentaje de reservas efectivamente utilizadas vs. canceladas/no asistidas
 SELECT
@@ -64,13 +63,6 @@ SELECT
     COUNT(*) / (SELECT COUNT(*) FROM reserva) * 100 AS PorcentajeReservas
 FROM reserva
 GROUP BY EstadoReserva;
-
-SELECT
-    #SUM(if(estado='finalizada' OR estado='activa',1,0)) AS reservas_utilizada,
-    #SUM(if(estado='cancelada' OR estado='sin asistencia',1,0 )) AS reservas_no_utilizadas,
-    SUM(if(estado='finalizada' OR estado='activa',1,0)) / COUNT(id_reserva) * 100 AS porcentaje_utilizado,
-    SUM(if(estado='cancelada' OR estado='sin asistencia',1,0 )) / COUNT(id_reserva) * 100 AS porcentaje_no_utilizadas
-FROM reserva;
 
 #Reservas por turno
 select t.hora_inicio, t.hora_fin, count(r.id_reserva) as CantReservas
