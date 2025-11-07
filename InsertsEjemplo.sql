@@ -1,13 +1,15 @@
 USE ObligatorioBD1;
 
 -- Tabla: login
-INSERT INTO login (correo, contraseña) VALUES
-('juan.perez@ucu.edu.uy', 'Jperez#2025!'),
-('maria.gomez@ucu.edu.uy', 'Mgomez@45Ux'),
-('ana.rodriguez@ucu.edu.uy', 'Ana_Rdz!89'),
-('carlos.silva@ucu.edu.uy', 'SilvaC#33$'),
-('sofia.fernandez@ucu.edu.uy', 'SofiFz_2025!'),
-('martin.lopez@ucu.edu.uy', 'Mlopez#77*');
+INSERT INTO login (correo, contraseña, es_administrador) VALUES
+('administrador@ucu.edu.uy', 'admin2025',True),
+('usuario@ucu.edu.uy', 'user2025',False),
+('juan.perez@ucu.edu.uy', 'Jperez#2025!',False),
+('maria.gomez@ucu.edu.uy', 'Mgomez@45Ux',False),
+('ana.rodriguez@ucu.edu.uy', 'Ana_Rdz!89',False),
+('carlos.silva@ucu.edu.uy', 'SilvaC#33$',False),
+('sofia.fernandez@ucu.edu.uy', 'SofiFz_2025!',False),
+('martin.lopez@ucu.edu.uy', 'Mlopez#77*',False);
 -- Tabla: facultad
 INSERT INTO facultad (id_facultad, nombre) VALUES
 (1, 'Facultad de Ingeniería y Tecnologías'),
