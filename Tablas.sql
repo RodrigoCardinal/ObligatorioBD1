@@ -85,19 +85,15 @@ CREATE TABLE sancion_participante(
     FOREIGN KEY (ci_participante) REFERENCES participante(ci)
 );
 
-
-/*  Nuva tabla  */
-
 CREATE TABLE invitados(
     ci_invitado INT PRIMARY KEY,
     responsable_ci INT,
     nombre_invitado VARCHAR(20),
     apellido_invitado VARCHAR(20),
     email VARCHAR(50),
-    fecha DATE,
-    hora_inicio TIME,
-    hora_fin TIME,
-    FOREIGN KEY (responsable) REFERENCES participante(ci),
-    FOREIGN KEY (fecha) REFERENCES reserva(fecha),
-    FOREIGN KEY (hora_inicio,hora_fin) REFERENCES turno(hora_inicio,hora_fin)
+    id_reserva int,
+    id_turno int,
+    FOREIGN KEY (responsable_ci) REFERENCES participante(ci),
+    FOREIGN KEY (id_reserva) REFERENCES reserva(id_reserva),
+    FOREIGN KEY (id_turno) REFERENCES turno(id_turno)
 );

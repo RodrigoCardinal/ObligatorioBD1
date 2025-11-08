@@ -78,5 +78,5 @@ where fecha between '2025-08-12' and '2025-12-05';
 #Participantes con sanciones
 select p.nombre, p.apellido, p.ci, count(*) as CantSanciones
 from participante p
-join sancion_participante sp on sp.ci_participante = p.ci
+         join sancion_participante sp on sp.ci_participante = p.ci
 group by p.nombre, p.apellido, p.ci;
