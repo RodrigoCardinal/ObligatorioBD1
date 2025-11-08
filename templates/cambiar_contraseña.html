@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Cambiar contraseña | Sistema de Salas{% endblock %}
+
+{% block hero_title %}
+  <h1 class="hero-title mb-1">Cambiar contraseña</h1>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-body">
+        <form method="post" action="{{ url_for('cambiar_contraseña') }}" novalidate>
+          <div class="mb-3">
+            <label class="form-label" for="actual">Contraseña actual</label>
+            <input id="actual" type="password" name="actual" class="form-control" required minlength="6" autocomplete="current-password">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="nueva">Nueva contraseña</label>
+            <input id="nueva" type="password" name="nueva" class="form-control" required minlength="8" autocomplete="new-password">
+          </div>
+          <div class="mb-3">
+            <label class="form-label" for="confirmar">Confirmar nueva contraseña</label>
+            <input id="confirmar" type="password" name="confirmar" class="form-control" required minlength="8" autocomplete="new-password">
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary" type="submit">Guardar</button>
+            <a href="{{ url_for('inicio') }}" class="btn btn-outline-secondary">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.querySelector('form');
+    form.addEventListener('submit', (e) => {
+      const n = document.getElementById('nueva').value;
+      const c = document.getElementById('confirmar').value;
+      if (n !== c) { e.preventDefault(); alert('La nueva contraseña y la confirmación no coinciden.'); }
+    });
+  });
+</script>
+{% endblock %}

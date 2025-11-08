@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Sanciones | Sistema de Salas{% endblock %}
+
+{% block hero_title %}
+  <h1 class="hero-title mb-1">Sanciones</h1>
+  <p class="hero-sub mb-0">Listado de sanciones activas y expiradas</p>
+{% endblock %}
+
+{% block content %}
+<div class="table-responsive">
+  <table class="table table-sm align-middle">
+    <thead><tr><th>CI</th><th>Nombre</th><th>Motivo</th><th>Desde</th><th>Hasta</th><th>Estado</th></tr></thead>
+    <tbody>
+      {% for s in sanciones %}
+        <tr>
+          <td>{{ s.ci }}</td>
+          <td>{{ s.nombre }}</td>
+          <td>{{ s.motivo }}</td>
+          <td>{{ s.desde }}</td>
+          <td>{{ s.hasta }}</td>
+          <td><span class="badge {{ 'bg-danger' if s.activa else 'bg-secondary' }}">{{ 'Activa' if s.activa else 'Expirada' }}</span></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="text-muted">Sin sanciones.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

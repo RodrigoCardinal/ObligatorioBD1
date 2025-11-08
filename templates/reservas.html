@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Reservas | Sistema de Salas{% endblock %}
+
+{% block hero_title %}
+  <h1 class="hero-title mb-1">Mis reservas</h1>
+  <p class="hero-sub mb-0">Filtrá por fecha, estado o nombre de sala</p>
+{% endblock %}
+
+{% block content %}
+<form class="row g-2 mb-3" method="get" action="{{ url_for('reservas_listado') }}" aria-label="Filtros de reservas">
+  <div class="col-md-3">
+    <label for="f-fecha" class="visually-hidden">Fecha</label>
+    <input id="f-fecha" name="fecha" type="date" class="form-control" value="{{ request.args.get('fecha','') }}">
+  </div>
+  <div class="col-md-3">
+    <label for="f-estado" class="visually-hidden">Estado</label>
+    <select id="f-estado" name="estado" class="form-select">
+      <option value="">Todos los estados</option>
+      {% for e in ['activa','cancelada','finalizada','sin asistencia'] %}
+        <option value="{{ e }}" {{ 'selected' if request.args.get('estado')==e else '' }}>{{ e|capitalize }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label for="f-sala" class="visually-hidden">Sala</label>
+    <input id="f-sala" name="sala" type="text" class="form-control" placeholder="Buscar por sala" value="{{ request.args.get('sala','') }}">
+  </div>
+  <div class="col-md-3 d-flex gap-2">
+    <button class="btn btn-primary" type="submit">Filtrar</button>
+    <a class="btn btn-outline-secondary" href="{{ url_for('reservas_listado') }}">Limpiar</a>
+  </div>
+</form>
+
+<div class="table-responsive">
+  <table class="table table-sm align-middle">
+    <thead><tr><th>Fecha</th><th>Hora</th><th>Sala</th><th>Edificio</th><th>Estado</th><th></th></tr></thead>
+    <tbody>
+      {% for r in reservas %}
+        <tr>
+          <td>{{ r.fecha }}</td>
+          <td>{{ r.hora_inicio }}–{{ r.hora_fin }}</td>
+          <td>{{ r.nombre_sala }}</td>
+          <td>{{ r.edificio }}</td>
+          <td>
+            <span class="badge
+              {{ 'bg-success' if r.estado=='activa'
+                 else 'bg-danger' if r.estado=='cancelada'
+                 else 'bg-secondary' if r.estado=='finalizada'
+                 else 'bg-warning text-dark' }}">{{ r.estado|capitalize }}</span>
+          </td>
+          <td class="text-end">
+            <a href="{{ url_for('sala_detalle', edificio=r.edificio, nombre_sala=r.nombre_sala) }}" class="btn btn-sm btn-outline-primary">Ver sala</a>
+          </td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="text-muted">No hay reservas que coincidan.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

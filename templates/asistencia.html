@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Asistencia | Sistema de Salas{% endblock %}
+
+{% block hero_title %}
+  <h1 class="hero-title mb-1">Asistencia de hoy</h1>
+  <p class="hero-sub mb-0">Marcá asistencia por reserva y participante</p>
+{% endblock %}
+
+{% block content %}
+<div class="vstack gap-3">
+  {% for r in reservas_hoy %}
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <div>
+            <h5 class="mb-0">{{ r.sala_nombre }}</h5>
+            <small class="text-muted">{{ r.hora_inicio }}–{{ r.hora_fin }}</small>
+          </div>
+        </div>
+
+        <div class="vstack gap-2">
+          {% for p in r.participantes %}
+            {% set cid = 'as_' ~ r.id ~ '_' ~ p.ci %}
+            <div class="d-flex justify-content-between align-items-center">
+              <div><strong>{{ p.nombre }}</strong> <small class="text-muted">({{ p.ci }})</small></div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="{{ cid }}" {% if p.asistio %}checked{% endif %} disabled>
+                <label class="form-check-label" for="{{ cid }}">{{ 'Asistió' if p.asistio else 'No asistió' }}</label>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <p class="text-muted">No hay reservas para hoy.</p>
+  {% endfor %}
+</div>
+{% endblock %}

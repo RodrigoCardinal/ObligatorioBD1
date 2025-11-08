@@ -1,5 +1,5 @@
 USE ObligatorioBD1;
-
+-- UPDATE login SET contraseña = MD5(contraseña);
 -- Tabla: login
 INSERT INTO login (correo, contraseña, es_administrador) VALUES
 ('administrador@ucu.edu.uy', 'admin2025',True),
@@ -108,3 +108,4 @@ INSERT INTO invitados(ci_invitado,responsable_ci,nombre_invitado,apellido_invita
 (43459814,50128394,'Julian','Perez','julian.perez@gmail.com',1,1),
 (56784229,51293487,'Ana','Gonzalez','ana.gonzalez@gmail.com',7,4),
 (93245881,48927153,'Juliana','Mendez','juliana.mendez@gmail.com',4,1);
+

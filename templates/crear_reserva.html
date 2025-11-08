@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Nueva reserva | Sistema de Salas{% endblock %}
+
+{% block header %}
+<section class="container">
+  <div class="hero" style="--bg:url('{{ url_for('static', filename='assets/fondos/fondo.jpg') }}');">
+    <h1 class="header-title mb-1">Crear reserva</h1>
+    <p class="header-description mb-0">Completá los datos y confirmá la solicitud</p>
+  </div>
+</section>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-8">
+    <div class="card"><div class="card-body">
+      <form method="post" action="{{ url_for('reservas_crear') }}">
+        <input type="hidden" name="edificio" value="{{ sala.edificio }}">
+        <input type="hidden" name="nombre_sala" value="{{ sala.nombre_sala }}">
+
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label" for="f-sala">Sala</label>
+            <input id="f-sala" name="sala_display" class="form-control" value="{{ sala.nombre_sala }}" readonly aria-readonly="true">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="f-fecha">Fecha</label>
+            <input id="f-fecha" type="date" name="fecha" class="form-control" required value="{{ fecha_default or '' }}">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="f-turno">Turno (1h)</label>
+            <select id="f-turno" name="id_turno" class="form-select" required>
+              {% for t in horarios_disponibles %}
+                <option value="{{ t.id_turno }}">{{ t.hora_inicio }}–{{ t.hora_fin }}</option>
+              {% else %}
+                <option disabled>No hay turnos libres</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="f-part">Participantes (CI separados por coma)</label>
+            <input id="f-part" name="participantes" class="form-control" placeholder="49382716, 51293487">
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-primary" type="submit" {% if not horarios_disponibles %}disabled{% endif %}>Reservar</button>
+          <a href="{{ url_for('salas_listado') }}" class="btn btn-outline-secondary" type="button">Cancelar</a>
+        </div>
+      </form>
+    </div></div>
+  </div>
+</div>
+{% endblock %}
