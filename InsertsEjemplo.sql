@@ -1,5 +1,5 @@
 USE ObligatorioBD1;
-UPDATE login SET contraseña = MD5(contraseña); 
+-- UPDATE login SET contraseña = MD5(contraseña);
 -- Tabla: login
 INSERT INTO login (correo, contraseña) VALUES
 ('juan.perez@ucu.edu.uy', 'Jperez#2025!'),
