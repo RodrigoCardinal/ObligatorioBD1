@@ -2,7 +2,7 @@
 {% block title %}Reservas | Sistema de Salas{% endblock %}
 
 {% block hero_title %}
-  <h1 class="hero-title mb-1">Mis reservas</h1>
+  <h1 class="hero-title mb-1">Reservas</h1>
   <p class="hero-sub mb-0">Filtrá por fecha, estado o nombre de sala</p>
 {% endblock %}
 
@@ -49,7 +49,7 @@
                  else 'bg-warning text-dark' }}">{{ r.estado|capitalize }}</span>
           </td>
           <td class="text-end">
-            <a href="{{ url_for('sala_detalle', edificio=r.edificio, nombre_sala=r.nombre_sala) }}" class="btn btn-sm btn-outline-primary">Ver sala</a>
+            <a href="{{ url_for('reserva_detalle', id=r.id_reserva) }}" class="btn btn-sm btn-outline-primary">Ver reserva</a>
           </td>
         </tr>
       {% else %}

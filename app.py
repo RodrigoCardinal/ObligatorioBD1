@@ -25,9 +25,9 @@ app.jinja_env.cache = {}
 print("Templates dir:", os.path.abspath(app.template_folder))
 print("Static dir:",    os.path.abspath(app.static_folder))
 
-app.config['MYSQL_HOST'] = '127.0.0.1'
+app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'VivaCubaLibre1514'
+app.config['MYSQL_PASSWORD'] = 'tu_contra'
 app.config['MYSQL_DB'] = 'ObligatorioBD1'
 
 mysql = MySQL(app)
@@ -83,6 +83,10 @@ def _imagen_sala_url(nombre_sala: str):
             return url_for('static', filename=os.path.join(SALAS_REL_DIR, real))
     return None
 
+@app.context_processor
+def inject_now():
+    return {'now': datetime.now}
+
 def _require_login():
     if "usuario" not in session:
         return redirect(url_for("login"))
@@ -100,16 +104,27 @@ def login():
         cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
         cur.execute("SELECT correo, contraseña FROM login WHERE correo = %s", (correo,))
         usuario = cur.fetchone()
-        cur.close()
 
         if not usuario:
+            cur.close()
             return render_template("login.html", error="El correo no está registrado.")
 
         if not check_password_hash(usuario["contraseña"], contraseña):
+            cur.close()
             return render_template("login.html", error="Contraseña incorrecta.")
 
-        session["usuario"] = {"correo": usuario["correo"]}
+        #Buscar el CI del participante con ese correo
+        cur.execute("SELECT ci FROM participante WHERE email = %s", (correo,))
+        participante = cur.fetchone()
+        cur.close()
+
+        # Guardar en la sesión tanto correo como CI (si existe)
+        session["usuario"] = {"correo": usuario["correo"],}
+        if participante:
+            session["user_ci"] = participante["ci"]
+
         return redirect(url_for("inicio"))
+
     return render_template("login.html")
 
 @app.get("/logout")
@@ -323,41 +338,97 @@ def reservas_listado():
 @app.get("/reservas/<int:id>")
 def reserva_detalle(id):
     need = _require_login()
-    if need: 
+    if need:
         return need
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+
+    # --- Obtener información principal de la reserva ---
     cur.execute("""
         SELECT r.id_reserva, r.fecha, r.estado,
-               r.nombre_sala, r.edificio,
-               s.capacidad, s.tipo_sala,
+               r.nombre_sala, s.edificio,
+               s.capacidad, s.tipo_sala, e.direccion,
                TIME_FORMAT(t.hora_inicio,'%%H:%%i') AS hora_inicio,
-               TIME_FORMAT(t.hora_fin,   '%%H:%%i') AS hora_fin
+               TIME_FORMAT(t.hora_fin,'%%H:%%i') AS hora_fin
         FROM reserva r
-        JOIN sala  s ON s.nombre_sala=r.nombre_sala AND s.edificio=r.edificio
-        JOIN turno t ON t.id_turno=r.id_turno
-        WHERE r.id_reserva=%s
+        JOIN sala  s ON s.nombre_sala = r.nombre_sala AND s.edificio = r.edificio
+        JOIN edificio e on s.edificio = e.nombre_edificio 
+        JOIN turno t ON t.id_turno = r.id_turno
+        WHERE r.id_reserva = %s
     """, (id,))
     r = cur.fetchone()
+
     if not r:
         cur.close()
         flash("Reserva no encontrada.", "danger")
         return redirect(url_for("reservas_listado"))
 
+    # --- Participantes de la reserva ---
     cur.execute("""
         SELECT p.ci, CONCAT(p.nombre,' ',p.apellido) AS nombre, rp.asistencia
         FROM reserva_participante rp
-        JOIN participante p ON p.ci=rp.ci_participante
-        WHERE rp.id_reserva=%s
+        JOIN participante p ON p.ci = rp.ci_participante
+        WHERE rp.id_reserva = %s
         ORDER BY p.apellido, p.nombre
     """, (id,))
     participantes = cur.fetchall()
+
+
+    # --- Verificar si el usuario actual forma parte de la reserva ---
+    cur.execute("""
+        SELECT 1
+        FROM reserva_participante
+        WHERE id_reserva = %s AND ci_participante = %s
+    """, (id, session["user_ci"]))
+    usuario_en_reserva = cur.fetchone() is not None
+
     cur.close()
 
+    # --- Obtener imagen de la sala ---
     img = _imagen_sala_url(r["nombre_sala"])
-    return render_template("reserva_detalle.html", r=r, participantes=participantes, img=img)
 
+    # --- Renderizar plantilla ---
+    return render_template(
+        "reserva_detalle.html",
+        r=r,
+        participantes=participantes,
+        img=img,
+        usuario_en_reserva=usuario_en_reserva
+    )
 
+@app.route("/baja_reserva/<int:id>", methods=["POST"])
+def baja_reserva(id):
+    user_ci = session.get("user_ci")
+
+    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+
+    #Ver cuántos participantes hay en la reserva
+    cur.execute("""
+        SELECT COUNT(*) AS total
+        FROM reserva_participante
+        WHERE id_reserva = %s
+    """, (id,))
+    total = cur.fetchone()["total"]
+
+    #Eliminar al usuario actual de la reserva
+    cur.execute("""
+        DELETE FROM reserva_participante
+        WHERE id_reserva = %s AND ci_participante = %s
+    """, (id, user_ci))
+
+    #Si era el único participante → cancelar la reserva
+    if total == 1:
+        cur.execute("""
+            UPDATE reserva
+            SET estado = 'cancelada'
+            WHERE id_reserva = %s
+        """, (id,))
+
+    mysql.connection.commit()
+    cur.close()
+
+    flash("Te has dado de baja de la reserva.", "success")
+    return redirect(url_for("reservas_listado"))
 
 @app.route("/reservas/nueva", methods=["GET","POST"])
 def reservas_crear():

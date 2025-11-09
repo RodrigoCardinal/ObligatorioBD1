@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Reservas | Sistema de Salas{% endblock %}
+
+{% block hero_title %}
+  <h1 class="hero-title mb-1">Detalle de la reserva</h1>
+  <p class="hero-sub mb-0"> Consultá toda la información de la reserva</p>
+{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row g-4">
+    <!-- Columna izquierda: Detalles -->
+    <div class="col-lg-8">
+      <div class="card p-4">
+        <h2 class="section-title mb-3">{{ r.nombre_sala }}</h2>
+        <img src="{{ img }}" alt="Sala" class="room-cover mb-4">
+
+        <table class="table table-borderless mb-0">
+          <tbody>
+            <tr>
+              <th scope="row">📅 Fecha:</th>
+              <td>{{ r.fecha.strftime("%d/%m/%Y") }}</td>
+            </tr>
+            <tr>
+              <th scope="row">🕐 Horario:</th>
+              <td>{{ r.hora_inicio }} – {{ r.hora_fin }}</td>
+            </tr>
+            <tr>
+              <th scope="row">🏛️ Edificio:</th>
+              <td>{{ r.edificio }}</td>
+            </tr>
+            <tr>
+              <th scope="row">📍 Dirección:</th>
+              <td>{{ r.direccion if r.direccion else "No especificada" }}</td>
+            </tr>
+            <tr>
+              <th scope="row">💺 Capacidad:</th>
+              <td>{{ r.capacidad }} personas</td>
+            </tr>
+            <tr>
+              <th scope="row">🧩 Tipo de sala:</th>
+              <td>{{ r.tipo_sala }}</td>
+            </tr>
+            <tr>
+              <th scope="row">🔖 Estado:</th>
+              <td>
+                {% if r.estado == "activa" %}
+                  <span class="badge bg-success">Activa</span>
+                {% elif r.estado == "finalizada" %}
+                  <span class="badge bg-secondary">Finalizada</span>
+                {% else %}
+                  <span class="badge bg-warning text-dark">{{ r.estado }}</span>
+                {% endif %}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Columna derecha: Participantes -->
+    <div class="col-lg-4">
+      <div class="card p-4 h-100">
+        <h3 class="section-title mb-3">Participantes</h3>
+
+        {% if participantes %}
+          <ul class="list-group list-group-flush">
+            {% for p in participantes %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                {{ p.nombre }}
+                {% if p.asistencia == 1 %}
+                  <span class="badge bg-success">Asistió</span>
+                {% else %}
+                  <span class="badge bg-secondary">Pendiente</span>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="text-muted">No hay participantes registrados aún.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Botones de acción -->
+  <div class="text-center mt-5">
+    {% if not usuario_en_reserva %}
+      <form method="POST" action="{{ url_for('unirme_reserva', id=r.id_reserva) }}">
+        <button type="submit" class="btn btn-primary px-4 py-2">Unirme a la reserva</button>
+      </form>
+    {% else %}
+      <form method="POST" action="{{ url_for('baja_reserva', id=r.id_reserva) }}">
+        <button type="submit" class="btn btn-outline-primary px-4 py-2">Darme de baja</button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
