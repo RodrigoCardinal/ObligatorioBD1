@@ -8,20 +8,14 @@
 
 {% block content %}
 {% set slug = (sala.nombre_sala|lower
-                |replace(' ', '')
+                |replace(' ', '_')
                 |replace('á','a')|replace('é','e')|replace('í','i')|replace('ó','o')|replace('ú','u')
                 |replace('ñ','n')) %}
 
 <div class="row g-4">
   <div class="col-lg-8">
     <div class="card"><div class="card-body">
-      <picture>
-        <source srcset="{{ url_for('static', filename='assets/Salas/' ~ slug ~ '.webp') }}" type="image/webp">
-        <source srcset="{{ url_for('static', filename='assets/Salas/' ~ slug ~ '.jpg') }}" type="image/jpeg">
-        <img class="room-cover"
-             src="{{ url_for('static', filename='assets/Salas/' ~ slug ~ '.jpeg') }}"
-             alt="Imagen de {{ sala.nombre_sala }}">
-      </picture>
+    <img src="{{ img }}" alt={{ sala.nombre_sala }} class="room-cover mb-4">
 
       <hr>
       <h5 class="card-title mb-3">Información</h5>
@@ -38,7 +32,7 @@
 
   <div class="col-lg-4">
     <div class="card mb-3"><div class="card-body">
-      <h5 class="card-title">Disponibilidad del día (1h)</h5>
+      <h5 class="card-title">Disponibilidad del día (1 h)</h5>
       <div class="d-grid gap-2">
         {% for h in horarios %}
           <button class="btn btn-outline-secondary" {% if h.estado != 'Libre' %}disabled{% endif %}>

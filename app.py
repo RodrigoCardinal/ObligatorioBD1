@@ -270,8 +270,8 @@ def sala_detalle(edificio, nombre_sala):
         flash("Sala no encontrada.", "danger")
         return redirect(url_for("salas_listado"))
 
-    # Imagen resuelta por helper
-    sala["img"] = _imagen_sala_url(sala["nombre_sala"])
+    # --- Obtener imagen de la sala ---
+    img = _imagen_sala_url(sala["nombre_sala"])
 
     # Turnos del día
     cur.execute("SELECT id_turno, hora_inicio, hora_fin FROM turno ORDER BY hora_inicio")
@@ -290,7 +290,7 @@ def sala_detalle(edificio, nombre_sala):
         ocupados = [row["hi"] for row in cur.fetchall()]
 
     cur.close()
-    return render_template("sala.html", sala=sala, horarios=horarios, ocupados=ocupados)
+    return render_template("sala.html", sala=sala, horarios=horarios, ocupados=ocupados, img = img)
 
 
 # ---------------------------
