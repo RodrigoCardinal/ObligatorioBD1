@@ -1,6 +1,6 @@
 import os
 import unicodedata
-from datetime import date
+from datetime import date, datetime
 
 import pymysql
 pymysql.install_as_MySQLdb()
@@ -25,9 +25,9 @@ app.jinja_env.cache = {}
 print("Templates dir:", os.path.abspath(app.template_folder))
 print("Static dir:",    os.path.abspath(app.static_folder))
 
-app.config['MYSQL_HOST'] = 'localhost'
+app.config['MYSQL_HOST'] = '127.0.0.1'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'rootpassword'
+app.config['MYSQL_PASSWORD'] = 'VivaCubaLibre1514'
 app.config['MYSQL_DB'] = 'ObligatorioBD1'
 
 mysql = MySQL(app)
@@ -302,7 +302,7 @@ def reservas_listado():
                r.estado
         FROM reserva r
         JOIN turno t ON t.id_turno = r.id_turno
-        WHERE 1=1
+        WHERE 1=1   -- por qué 1=1?
     """
     params=[]
     if estado:
@@ -443,8 +443,8 @@ def reservas_crear():
     if fecha:
         cur.execute("""
             SELECT id_turno,
-                   TIME_FORMAT(hora_inicio,'%%H:%%i') AS hi,
-                   TIME_FORMAT(hora_fin,   '%%H:%%i') AS hf
+                   DATE_FORMAT(hora_inicio,'%H:%i') AS hi,
+                   DATE_FORMAT(hora_fin,   '%H:%i') AS hf
             FROM turno ORDER BY hora_inicio
         """)
         todos = cur.fetchall()
@@ -463,10 +463,7 @@ def reservas_crear():
     return render_template("crear_reserva.html",
                            sala=sala,
                            fecha=fecha or "",
-                           turnos_disponibles=turnos_disponibles)
-
-
-
+                           horarios_disponibles=turnos_disponibles)
 
 @app.post("/reservas/unirse")
 def reservas_unirse():

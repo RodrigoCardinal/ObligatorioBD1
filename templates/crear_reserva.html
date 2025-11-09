@@ -13,42 +13,65 @@
 {% block content %}
 <div class="row justify-content-center">
   <div class="col-lg-8">
-    <div class="card"><div class="card-body">
-      <form method="post" action="{{ url_for('reservas_crear') }}">
-        <input type="hidden" name="edificio" value="{{ sala.edificio }}">
-        <input type="hidden" name="nombre_sala" value="{{ sala.nombre_sala }}">
+    <div class="card">
+      <div class="card-body">
 
-        <div class="row g-3">
-          <div class="col-md-4">
-            <label class="form-label" for="f-sala">Sala</label>
-            <input id="f-sala" name="sala_display" class="form-control" value="{{ sala.nombre_sala }}" readonly aria-readonly="true">
+        <!-- FORM PARA ELEGIR FECHA -->
+        <form method="get" action="{{ url_for('reservas_crear') }}" class="mb-3">
+          <input type="hidden" name="edificio" value="{{ sala.edificio }}">
+          <input type="hidden" name="nombre_sala" value="{{ sala.nombre_sala }}">
+          <div class="row g-3 align-items-end">
+            <div class="col-md-6">
+              <label for="f-fecha" class="form-label">Seleccionar fecha</label>
+              <input id="f-fecha" type="date" name="fecha" class="form-control"
+                     value="{{ fecha or '' }}" onchange="this.form.submit()">
+            </div>
           </div>
-          <div class="col-md-4">
-            <label class="form-label" for="f-fecha">Fecha</label>
-            <input id="f-fecha" type="date" name="fecha" class="form-control" required value="{{ fecha_default or '' }}">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label" for="f-turno">Turno (1h)</label>
-            <select id="f-turno" name="id_turno" class="form-select" required>
-              {% for t in horarios_disponibles %}
-                <option value="{{ t.id_turno }}">{{ t.hora_inicio }}–{{ t.hora_fin }}</option>
-              {% else %}
-                <option disabled>No hay turnos libres</option>
-              {% endfor %}
-            </select>
-          </div>
-          <div class="col-12">
-            <label class="form-label" for="f-part">Participantes (CI separados por coma)</label>
-            <input id="f-part" name="participantes" class="form-control" placeholder="49382716, 51293487">
-          </div>
-        </div>
+        </form>
 
-        <div class="d-flex gap-2 mt-3">
-          <button class="btn btn-primary" type="submit" {% if not horarios_disponibles %}disabled{% endif %}>Reservar</button>
-          <a href="{{ url_for('salas_listado') }}" class="btn btn-outline-secondary" type="button">Cancelar</a>
-        </div>
-      </form>
-    </div></div>
+        <!-- FORM PARA CREAR RESERVA -->
+        <form method="post" action="{{ url_for('reservas_crear') }}">
+          <input type="hidden" name="edificio" value="{{ sala.edificio }}">
+          <input type="hidden" name="nombre_sala" value="{{ sala.nombre_sala }}">
+          <input type="hidden" name="fecha" value="{{ fecha or '' }}">
+
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label" for="f-sala">Sala</label>
+              <input id="f-sala" name="sala_display" class="form-control"
+                     value="{{ sala.nombre_sala }}" readonly aria-readonly="true">
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label" for="f-turno">Turno (1h)</label>
+              <select id="f-turno" name="id_turno" class="form-select" required>
+                {% for t in horarios_disponibles %}
+                  <option value="{{ t.id_turno }}">{{ t.hi }}–{{ t.hf }}</option>
+                {% else %}
+                  <option disabled>No hay turnos libres</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label" for="f-part">Participantes (CI separados por coma)</label>
+              <input id="f-part" name="participantes" class="form-control"
+                     placeholder="49382716, 51293487">
+            </div>
+          </div>
+
+          <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-primary" type="submit"
+              {% if not horarios_disponibles %}disabled{% endif %}>
+              Reservar
+            </button>
+            <a href="{{ url_for('salas_listado') }}" class="btn btn-outline-secondary" type="button">
+              Cancelar
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
