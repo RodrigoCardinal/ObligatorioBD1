@@ -663,14 +663,29 @@ def sanciones_listado():
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
     cur.execute("""
-        SELECT p.ci, CONCAT(p.nombre,' ',p.apellido) nombre,
-               s.fecha_inicio desde, s.fecha_fin hasta
-        FROM sancion_participante s
-        JOIN participante p ON p.ci=s.ci_participante
-        ORDER BY s.fecha_inicio DESC
-    """)
-    sanciones = [{"ci": r["ci"], "nombre": r["nombre"], "motivo": "No asistencia",
-                  "desde": r["desde"], "hasta": r["hasta"]} for r in cur.fetchall()]
+                SELECT p.ci,
+                       CONCAT(p.nombre, ' ', p.apellido) nombre,
+                       s.fecha_inicio                    desde,
+                       s.fecha_fin                       hasta
+                FROM sancion_participante s
+                         JOIN participante p ON p.ci = s.ci_participante
+                ORDER BY s.fecha_inicio DESC
+                """)
+
+    hoy = date.today()
+    sanciones = []
+    for r in cur.fetchall():
+        desde = r["desde"]
+        hasta = r["hasta"]
+        sanciones.append({
+            "ci": r["ci"],
+            "nombre": r["nombre"],
+            "motivo": "No asistencia",
+            "desde": desde,
+            "hasta": hasta,
+            "activa": desde <= hoy <= hasta
+        })
+
     cur.close()
     return render_template("sanciones.html", sanciones=sanciones)
 
