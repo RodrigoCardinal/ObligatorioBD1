@@ -11,6 +11,7 @@
 {% endblock %}
 
 {% block content %}
+
 <div class="row justify-content-center">
   <div class="col-lg-8">
     <div class="card">
@@ -29,7 +30,7 @@
           </div>
         </form>
 
-        <!-- FORM PARA CREAR RESERVA -->
+        <!-- FORM PARA CREAR RESERVA (POST) -->
         <form method="post" action="{{ url_for('reservas_crear') }}">
           <input type="hidden" name="edificio" value="{{ sala.edificio }}">
           <input type="hidden" name="nombre_sala" value="{{ sala.nombre_sala }}">
@@ -53,6 +54,13 @@
               </select>
             </div>
 
+            <!-- 🔑 CONTRASEÑA DE LA RESERVA -->
+            <div class="col-md-4">
+              <label class="form-label" for="f-pass">Contraseña de la reserva</label>
+              <input id="f-pass" name="clave_reserva" type="password" class="form-control" required>
+              <div class="form-text">La vas a necesitar para que otros se unan.</div>
+            </div>
+
             <div class="col-12">
               <label class="form-label" for="f-part">Participantes (CI separados por coma)</label>
               <input id="f-part" name="participantes" class="form-control"
@@ -70,6 +78,7 @@
             </a>
           </div>
         </form>
+
       </div>
     </div>
   </div>

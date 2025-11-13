@@ -83,18 +83,27 @@
     </div>
   </div>
 
-<!-- Botones de acción -->
-<div class="text-center mt-5">
-  {% if not usuario_en_reserva %}
-    <form method="POST" action="{{ url_for('reservas_unirse') }}">
-      <input type="hidden" name="id_reserva" value="{{ r.id_reserva }}">
-      <button type="submit" class="btn btn-primary px-4 py-2">Unirme a la reserva</button>
-    </form>
-  {% else %}
-    <form method="POST" action="{{ url_for('baja_reserva', id=r.id_reserva) }}">
-      <button type="submit" class="btn btn-outline-primary px-4 py-2">Darme de baja</button>
-    </form>
-  {% endif %}
-</div>
+    <!-- Botones de acción -->
+  <div class="text-center mt-5">
+    {% if not usuario_en_reserva %}
+      <form method="POST" action="{{ url_for('reservas_unirse') }}" class="d-inline-block" style="max-width: 320px;">
+        <input type="hidden" name="id_reserva" value="{{ r.id_reserva }}">
 
+        <!-- 🔑 AQUÍ SE PIDE LA CONTRASEÑA PARA UNIRSE -->
+        <div class="mb-3 text-start">
+          <label class="form-label" for="join-pass">Contraseña de la reserva</label>
+          <input id="join-pass" name="clave_reserva" type="password" class="form-control" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary px-4 py-2">Unirme a la reserva</button>
+      </form>
+    {% else %}
+      <form method="POST" action="{{ url_for('baja_reserva', id=r.id_reserva) }}">
+        <button type="submit" class="btn btn-outline-primary px-4 py-2">Darme de baja</button>
+      </form>
+    {% endif %}
+  </div>
+
+
+</div>
 {% endblock %}

@@ -8,12 +8,21 @@
 
 {% block content %}
 <form class="row g-3 mb-4" method="get" action="{{ url_for('reportes_index') }}" aria-label="Filtros de reportes">
-  <div class="col-md-4"><label class="form-label" for="f-desde">Desde</label><input id="f-desde" type="date" name="desde" class="form-control" value="{{ request.args.get('desde','') }}"></div>
-  <div class="col-md-4"><label class="form-label" for="f-hasta">Hasta</label><input id="f-hasta" type="date" name="hasta" class="form-control" value="{{ request.args.get('hasta','') }}"></div>
-  <div class="col-md-4"><label class="form-label" for="f-edif">Edificio</label>
+  <div class="col-md-4">
+    <label class="form-label" for="f-desde">Desde</label>
+    <input id="f-desde" type="date" name="desde" class="form-control" value="{{ request.args.get('desde','') }}">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label" for="f-hasta">Hasta</label>
+    <input id="f-hasta" type="date" name="hasta" class="form-control" value="{{ request.args.get('hasta','') }}">
+  </div>
+  <div class="col-md-4">
+    <label class="form-label" for="f-edif">Edificio</label>
     <select id="f-edif" name="edificio" class="form-select">
       <option value="">Todos</option>
-      {% for e in edificios %}<option value="{{ e }}" {{ 'selected' if request.args.get('edificio')==e else '' }}>{{ e }}</option>{% endfor %}
+      {% for e in edificios %}
+        <option value="{{ e }}" {{ 'selected' if request.args.get('edificio')==e else '' }}>{{ e }}</option>
+      {% endfor %}
     </select>
   </div>
   <div class="col-12 d-flex gap-2">
@@ -23,49 +32,83 @@
 </form>
 
 <div class="row g-3 mb-4">
-  <div class="col-md-3"><div class="card"><div class="card-body text-center">
-    <div class="text-muted">Reservas</div><div class="fs-3 fw-bold">{{ kpis.reservas }}</div>
-  </div></div></div>
-  <div class="col-md-3"><div class="card"><div class="card-body text-center">
-    <div class="text-muted">% Ocupación</div><div class="fs-3 fw-bold">{{ kpis.ocupacion }}%</div>
-  </div></div></div>
-  <div class="col-md-3"><div class="card"><div class="card-body text-center">
-    <div class="text-muted">Asistencias</div><div class="fs-3 fw-bold">{{ kpis.asistencias }}</div>
-  </div></div></div>
-  <div class="col-md-3"><div class="card"><div class="card-body text-center">
-    <div class="text-muted">Sanciones</div><div class="fs-3 fw-bold">{{ kpis.sanciones }}</div>
-  </div></div></div>
+  <div class="col-md-3">
+    <div class="card"><div class="card-body text-center">
+      <div class="text-muted">Reservas</div>
+      <div class="fs-3 fw-bold">{{ kpis.reservas }}</div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card"><div class="card-body text-center">
+      <div class="text-muted">% Ocupación</div>
+      <div class="fs-3 fw-bold">{{ kpis.ocupacion }}%</div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card"><div class="card-body text-center">
+      <div class="text-muted">Asistencias</div>
+      <div class="fs-3 fw-bold">{{ kpis.asistencias }}</div>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card"><div class="card-body text-center">
+      <div class="text-muted">Sanciones</div>
+      <div class="fs-3 fw-bold">{{ kpis.sanciones }}</div>
+    </div></div>
+  </div>
 </div>
 
 <div class="row g-4">
-  <div class="col-lg-6"><div class="card"><div class="card-body">
-    <h5 class="card-title">Salas más reservadas</h5>
-    <div class="table-responsive">
-      <table class="table table-sm"><thead><tr><th>Sala</th><th>Edificio</th><th>Reservas</th></tr></thead>
-        <tbody>
-          {% for x in top_salas %}
-            <tr><td>{{ x.sala }}</td><td>{{ x.edificio }}</td><td>{{ x.count }}</td></tr>
-          {% else %}
-            <tr><td colspan="3" class="text-muted">Sin datos.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Salas más reservadas</h5>
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead>
+              <tr><th>Sala</th><th>Edificio</th><th>Reservas</th></tr>
+            </thead>
+            <tbody>
+              {% for x in top_salas %}
+                <tr>
+                  <td>{{ x.sala }}</td>
+                  <td>{{ x.edificio }}</td>
+                  <td>{{ x.count }}</td>
+                </tr>
+              {% else %}
+                <tr><td colspan="3" class="text-muted">Sin datos.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
-  </div></div></div>
+  </div>
 
-  <div class="col-lg-6"><div class="card"><div class="card-body">
-    <h5 class="card-title">Turnos más demandados</h5>
-    <div class="table-responsive">
-      <table class="table table-sm"><thead><tr><th>Turno</th><th>Reservas</th></tr></thead>
-        <tbody>
-          {% for x in top_turnos %}
-            <tr><td>{{ x.turno }}</td><td>{{ x.count }}</td></tr>
-          {% else %}
-            <tr><td colspan="2" class="text-muted">Sin datos.</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">Turnos más demandados</h5>
+        <div class="table-responsive">
+          <table class="table table-sm">
+            <thead>
+              <tr><th>Turno</th><th>Reservas</th></tr>
+            </thead>
+            <tbody>
+              {% for x in top_turnos %}
+                <tr>
+                  <td>{{ x.turno }}</td>
+                  <td>{{ x.count }}</td>
+                </tr>
+              {% else %}
+                <tr><td colspan="2" class="text-muted">Sin datos.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
-  </div></div></div>
+  </div>
 </div>
+
 {% endblock %}

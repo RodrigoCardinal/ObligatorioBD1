@@ -27,7 +27,7 @@ print("Static dir:",    os.path.abspath(app.static_folder))
 
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'tu_contra'
+app.config['MYSQL_PASSWORD'] = 'rootpassword'
 app.config['MYSQL_DB'] = 'ObligatorioBD1'
 
 mysql = MySQL(app)
@@ -437,13 +437,14 @@ def reservas_crear():
         return need
 
     if request.method == "POST":
-        edificio     = request.form.get("edificio")
-        nombre_sala  = request.form.get("nombre_sala")
-        fecha        = request.form.get("fecha")
-        id_turno     = request.form.get("id_turno", type=int)
+        edificio      = request.form.get("edificio")
+        nombre_sala   = request.form.get("nombre_sala")
+        fecha         = request.form.get("fecha")
+        id_turno      = request.form.get("id_turno", type=int)
+        clave_reserva = request.form.get("clave_reserva")
 
-        if not (edificio and nombre_sala and fecha and id_turno):
-            flash("Faltan datos para crear la reserva.", "danger")
+        if not (edificio and nombre_sala and fecha and id_turno and clave_reserva):
+            flash("Faltan datos para crear la reserva (incluida la contraseña).", "danger")
             return redirect(url_for("reservas_crear",
                                     edificio=edificio, nombre_sala=nombre_sala, fecha=fecha))
 
@@ -467,9 +468,9 @@ def reservas_crear():
         nxt = cur.fetchone()["nxt"]
 
         cur.execute("""
-            INSERT INTO reserva (id_reserva, nombre_sala, edificio, fecha, id_turno, estado)
-            VALUES (%s,%s,%s,%s,%s,'activa')
-        """, (nxt, nombre_sala, edificio, fecha, id_turno))
+            INSERT INTO reserva (id_reserva, nombre_sala, edificio, fecha, id_turno, estado, clave_reserva)
+            VALUES (%s,%s,%s,%s,%s,'activa',%s)
+        """, (nxt, nombre_sala, edificio, fecha, id_turno, clave_reserva))
 
         # Auto-agregar usuario logueado si existe en participante
         cur.execute("SELECT ci FROM participante WHERE email=%s", (session["usuario"]["correo"],))
@@ -486,7 +487,7 @@ def reservas_crear():
         flash("Reserva creada.", "success")
         return redirect(url_for("reserva_detalle", id=nxt))
 
-    # GET
+    # GET (queda igual que lo tenías)
     edificio    = request.args.get("edificio")
     nombre_sala = request.args.get("nombre_sala")
     fecha       = request.args.get("fecha")
@@ -542,12 +543,20 @@ def reservas_unirse():
     if need: 
         return need
 
-    id_reserva = request.form.get("id_reserva", type=int)
+    id_reserva    = request.form.get("id_reserva", type=int)
+    clave_ingresa = request.form.get("clave_reserva")
+
     if not id_reserva:
         flash("Reserva inválida.", "danger")
         return redirect(url_for("reservas_listado"))
 
+    if not clave_ingresa:
+        flash("Tenés que ingresar la contraseña de la reserva.", "danger")
+        return redirect(url_for("reserva_detalle", id=id_reserva))
+
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+
+    # Obtener CI del usuario logueado
     cur.execute("SELECT ci FROM participante WHERE email=%s", (session["usuario"]["correo"],))
     row = cur.fetchone()
     if not row:
@@ -564,6 +573,23 @@ def reservas_unirse():
         flash("Ya estabas unido a esa reserva.", "info")
         return redirect(url_for("reserva_detalle", id=id_reserva))
 
+    # Verificar contraseña de la reserva
+    cur.execute("SELECT clave_reserva FROM reserva WHERE id_reserva=%s", (id_reserva,))
+    r = cur.fetchone()
+    if not r:
+        cur.close()
+        flash("La reserva no existe.", "danger")
+        return redirect(url_for("reservas_listado"))
+
+    clave_correcta = r["clave_reserva"]
+
+    # Si la reserva tiene clave definida, la comparamos
+    if clave_correcta is not None and clave_correcta != "" and clave_ingresa != clave_correcta:
+        cur.close()
+        flash("Contraseña de la reserva incorrecta.", "danger")
+        return redirect(url_for("reserva_detalle", id=id_reserva))
+
+    # Si la clave es correcta (o la reserva no tiene clave), insertamos
     cur.execute("""
         INSERT INTO reserva_participante (ci_participante, id_reserva, fecha_solicitud_reserva, asistencia)
         VALUES (%s,%s,%s,false)
@@ -573,6 +599,7 @@ def reservas_unirse():
 
     flash("Te uniste a la reserva.", "success")
     return redirect(url_for("reserva_detalle", id=id_reserva))
+
 
 
 # ---------------------------
@@ -695,16 +722,19 @@ def sanciones_listado():
 @app.get("/reportes")
 def reportes_index():
     need = _require_login()
-    if need: return need
+    if need: 
+        return need
 
     tipo  = request.args.get("tipo_reporte", "uso_salas")
     desde = request.args.get("desde")
     hasta = request.args.get("hasta")
+    edif  = request.args.get("edificio")
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
     cur.execute("SELECT DISTINCT nombre_edificio FROM edificio ORDER BY nombre_edificio")
     edificios = [r["nombre_edificio"] for r in cur.fetchall()]
 
+    # --- Filtros comunes para consultas basadas en reserva ---
     filtros = []
     params  = []
     if desde:
@@ -713,10 +743,16 @@ def reportes_index():
     if hasta:
         filtros.append("r.fecha <= %s")
         params.append(hasta)
+    if edif:
+        filtros.append("r.edificio = %s")
+        params.append(edif)
     where = ("WHERE " + " AND ".join(filtros)) if filtros else ""
 
     columnas, datos = [], []
 
+    # -----------------------
+    # Tabla principal por tipo
+    # -----------------------
     if tipo == "uso_salas":
         columnas = ["Sala", "Edificio", "Reservas"]
         cur.execute(f"""
@@ -761,7 +797,9 @@ def reportes_index():
         rows = cur.fetchall()
         datos = [[x["ci"], x["nombre"], str(x["fecha_inicio"]), str(x["fecha_fin"])] for x in rows]
 
-    # KPIs
+    # -----------------------
+    # KPIs generales
+    # -----------------------
     cur.execute(f"SELECT COUNT(*) AS c FROM reserva r {where}", tuple(params))
     k_res = (cur.fetchone() or {}).get("c", 0) or 0
 
@@ -788,6 +826,38 @@ def reportes_index():
         WHERE CURDATE() BETWEEN fecha_inicio AND fecha_fin
     """)
     k_sanc = (cur.fetchone() or {}).get("c", 0) or 0
+
+    # -----------------------
+    # Salas más reservadas (similar a tu consulta #1)
+    # -----------------------
+    cur.execute(f"""
+        SELECT r.nombre_sala AS sala,
+               r.edificio,
+               COUNT(*) AS count
+        FROM reserva r
+        {where}
+        GROUP BY r.nombre_sala, r.edificio
+        ORDER BY count DESC, r.edificio, r.nombre_sala
+        LIMIT 10
+    """, tuple(params))
+    top_salas = cur.fetchall()
+
+    # -----------------------
+    # Turnos más demandados (similar a tu consulta #2)
+    # -----------------------
+    cur.execute(f"""
+        SELECT CONCAT(DATE_FORMAT(t.hora_inicio,'%%H:%%i'),' - ',
+                      DATE_FORMAT(t.hora_fin,'%%H:%%i')) AS turno,
+               COUNT(*) AS count
+        FROM reserva r
+        JOIN turno t ON t.id_turno = r.id_turno
+        {where}
+        GROUP BY t.id_turno, t.hora_inicio, t.hora_fin
+        ORDER BY count DESC, t.hora_inicio
+        LIMIT 10
+    """, tuple(params))
+    top_turnos = cur.fetchall()
+
     cur.close()
 
     kpis = {"reservas": k_res, "ocupacion": ocupacion, "asistencias": k_ok, "sanciones": k_sanc}
@@ -795,7 +865,9 @@ def reportes_index():
                            edificios=edificios,
                            kpis=kpis,
                            columnas=columnas,
-                           datos=datos)
+                           datos=datos,
+                           top_salas=top_salas,
+                           top_turnos=top_turnos)
 
 # ---------------------------
 # Recuperar contraseña (el login lo linkea)
