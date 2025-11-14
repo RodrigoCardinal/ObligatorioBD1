@@ -836,19 +836,22 @@ def sanciones_listado():
 @app.get("/reportes")
 def reportes_index():
     need = _require_login()
-    if need: 
+    if need:
         return need
 
+    # ---- Filtros del formulario ----
     tipo  = request.args.get("tipo_reporte", "uso_salas")
     desde = request.args.get("desde")
     hasta = request.args.get("hasta")
     edif  = request.args.get("edificio")
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+
+    # Combo de edificios
     cur.execute("SELECT DISTINCT nombre_edificio FROM edificio ORDER BY nombre_edificio")
     edificios = [r["nombre_edificio"] for r in cur.fetchall()]
 
-    # --- Filtros comunes para consultas basadas en reserva ---
+    # --- Filtros comunes para consultas basadas en reserva r ---
     filtros = []
     params  = []
     if desde:
@@ -860,13 +863,14 @@ def reportes_index():
     if edif:
         filtros.append("r.edificio = %s")
         params.append(edif)
+
     where = ("WHERE " + " AND ".join(filtros)) if filtros else ""
 
     columnas, datos = [], []
 
-    # -----------------------
-    # Tabla principal por tipo
-    # -----------------------
+    # ============================================================
+    # 1) Salas más reservadas (YA LO TENÍAS)
+    # ============================================================
     if tipo == "uso_salas":
         columnas = ["Sala", "Edificio", "Reservas"]
         cur.execute(f"""
@@ -880,6 +884,9 @@ def reportes_index():
         rows = cur.fetchall()
         datos = [[x["nombre_sala"], x["edificio"], x["CantReservas"]] for x in rows]
 
+    # ============================================================
+    # 2) Asistencias por reserva (YA LO TENÍAS)
+    # ============================================================
     elif tipo == "asistencias":
         columnas = ["Fecha", "Reserva", "Participantes", "Asistieron", "Tasa %"]
         cur.execute(f"""
@@ -895,9 +902,14 @@ def reportes_index():
         """, tuple(params))
         rows = cur.fetchall()
         for x in rows:
-            tasa = round((x["ok"] or 0) * 100.0 / (x["tot"] or 1), 1)
-            datos.append([str(x["fecha"]), x["id_reserva"], x["tot"] or 0, x["ok"] or 0, tasa])
+            tot = x["tot"] or 0
+            ok  = x["ok"] or 0
+            tasa = round(ok * 100.0 / (tot or 1), 1)
+            datos.append([str(x["fecha"]), x["id_reserva"], tot, ok, tasa])
 
+    # ============================================================
+    # 3) Listado de sanciones (YA LO TENÍAS)
+    # ============================================================
     elif tipo == "sanciones":
         columnas = ["CI", "Nombre", "Desde", "Hasta"]
         cur.execute("""
@@ -911,9 +923,165 @@ def reportes_index():
         rows = cur.fetchall()
         datos = [[x["ci"], x["nombre"], str(x["fecha_inicio"]), str(x["fecha_fin"])] for x in rows]
 
-    # -----------------------
-    # KPIs generales
-    # -----------------------
+    # ============================================================
+    # 4) Promedio de participantes por sala
+    #    (consulta: "Promedio de participantes por sala")
+    # ============================================================
+    elif tipo == "prom_participantes":
+        columnas = ["Sala", "Promedio de participantes"]
+        cur.execute("""
+            SELECT sub.nombre_sala,
+                   ROUND(AVG(sub.cant_participantes),2) AS PromParticipantes
+            FROM (
+                SELECT r.id_reserva,
+                       r.nombre_sala,
+                       COUNT(rp.ci_participante) AS cant_participantes
+                FROM reserva r
+                LEFT JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
+                GROUP BY r.id_reserva, r.nombre_sala
+            ) sub
+            GROUP BY sub.nombre_sala
+            ORDER BY PromParticipantes DESC, sub.nombre_sala
+        """)
+        rows = cur.fetchall()
+        datos = [[x["nombre_sala"], x["PromParticipantes"]] for x in rows]
+
+    # ============================================================
+    # 5) Cantidad de reservas por carrera y facultad
+    # ============================================================
+    elif tipo == "reservas_carrera":
+        columnas = ["Facultad", "Carrera", "Reservas"]
+        cur.execute("""
+            SELECT f.nombre AS Facultad,
+                   pa.nombre_programa AS Carrera,
+                   COUNT(r.id_reserva) AS CantReservas
+            FROM facultad f
+            LEFT JOIN programa_academico pa
+                   ON pa.id_facultad = f.id_facultad
+            LEFT JOIN participante_programa_academico ppa
+                   ON pa.nombre_programa = ppa.nombre_programa
+            LEFT JOIN reserva_participante rp
+                   ON ppa.ci_participante = rp.ci_participante
+            LEFT JOIN reserva r
+                   ON r.id_reserva = rp.id_reserva
+            GROUP BY f.nombre, pa.nombre_programa
+            ORDER BY Facultad, Carrera
+        """)
+        rows = cur.fetchall()
+        datos = [[x["Facultad"], x["Carrera"], x["CantReservas"]] for x in rows]
+
+    # ============================================================
+    # 6) Reservas y asistencias por rol (alumno/profesor, grado/posgrado)
+    # ============================================================
+    elif tipo == "reservas_rol":
+        columnas = ["Rol", "Reservas", "Asistencias"]
+        cur.execute("""
+            SELECT ppa.rol,
+                   COUNT(rp.id_reserva) AS CantReservas,
+                   COUNT(IF(rp.asistencia = TRUE, 1, NULL)) AS CantAsistencias
+            FROM participante_programa_academico ppa
+            JOIN reserva_participante rp
+                 ON ppa.ci_participante = rp.ci_participante
+            GROUP BY ppa.rol
+        """)
+        rows = cur.fetchall()
+        datos = [[x["rol"], x["CantReservas"], x["CantAsistencias"]] for x in rows]
+
+    # ============================================================
+    # 7) Cantidad de sanciones por rol (alumno/profesor)
+    # ============================================================
+    elif tipo == "sanciones_rol":
+        columnas = ["Rol", "Personas con sanciones"]
+        cur.execute("""
+            SELECT ppa.rol,
+                   COUNT(DISTINCT sp.ci_participante) AS CantSanciones
+            FROM participante_programa_academico ppa
+            JOIN sancion_participante sp
+                 ON ppa.ci_participante = sp.ci_participante
+            GROUP BY ppa.rol
+        """)
+        rows = cur.fetchall()
+        datos = [[x["rol"], x["CantSanciones"]] for x in rows]
+
+    # ============================================================
+    # 8) Porcentaje de reservas utilizadas vs. no utilizadas
+    # ============================================================
+    elif tipo == "porcentaje_uso":
+        columnas = ["Estado", "% Reservas"]
+        cur.execute("""
+            SELECT
+                CASE
+                    WHEN estado IN ('activa','finalizada') THEN 'Utilizadas'
+                    ELSE 'No utilizadas'
+                END AS EstadoReserva,
+                ROUND(
+                    COUNT(*) * 100.0 / (SELECT COUNT(*) FROM reserva),
+                    1
+                ) AS PorcentajeReservas
+            FROM reserva
+            GROUP BY EstadoReserva
+        """)
+        rows = cur.fetchall()
+        datos = [[x["EstadoReserva"], x["PorcentajeReservas"]] for x in rows]
+
+    # ============================================================
+    # 9) Reservas por turno (todas las reservas por franja horaria)
+    # ============================================================
+    elif tipo == "reservas_turno":
+        columnas = ["Turno", "Reservas"]
+        cur.execute("""
+            SELECT CONCAT(DATE_FORMAT(t.hora_inicio,'%H:%i'),' - ',
+                          DATE_FORMAT(t.hora_fin,'%H:%i')) AS turno,
+                   COUNT(r.id_reserva) AS CantReservas
+            FROM turno t
+            LEFT JOIN reserva r ON t.id_turno = r.id_turno
+            GROUP BY t.hora_inicio, t.hora_fin
+            ORDER BY t.hora_inicio
+        """)
+        rows = cur.fetchall()
+        datos = [[x["turno"], x["CantReservas"]] for x in rows]
+
+    # ============================================================
+    # 10) Reservas del segundo semestre 2025
+    # ============================================================
+    elif tipo == "reservas_semestre":
+        columnas = ["ID", "Sala", "Edificio", "Fecha", "Turno"]
+        cur.execute("""
+            SELECT r.id_reserva,
+                   r.nombre_sala,
+                   r.edificio,
+                   r.fecha,
+                   CONCAT(DATE_FORMAT(t.hora_inicio,'%H:%i'),' - ',
+                          DATE_FORMAT(t.hora_fin,'%H:%i')) AS turno
+            FROM reserva r
+            JOIN turno t ON t.id_turno = r.id_turno
+            WHERE r.fecha BETWEEN '2025-08-12' AND '2025-12-05'
+            ORDER BY r.fecha, t.hora_inicio
+        """)
+        rows = cur.fetchall()
+        datos = [[x["id_reserva"], x["nombre_sala"], x["edificio"],
+                  str(x["fecha"]), x["turno"]] for x in rows]
+
+    # ============================================================
+    # 11) Participantes con cantidad de sanciones
+    # ============================================================
+    elif tipo == "participantes_sanciones":
+        columnas = ["CI", "Nombre", "Apellido", "Sanciones"]
+        cur.execute("""
+            SELECT p.nombre, p.apellido, p.ci,
+                   COUNT(*) AS CantSanciones
+            FROM participante p
+            JOIN sancion_participante sp
+                 ON sp.ci_participante = p.ci
+            GROUP BY p.nombre, p.apellido, p.ci
+            ORDER BY CantSanciones DESC
+        """)
+        rows = cur.fetchall()
+        datos = [[x["ci"], x["nombre"], x["apellido"], x["CantSanciones"]] for x in rows]
+
+    # ============================================================
+    # KPIs generales (igual que antes)
+    # ============================================================
     cur.execute(f"SELECT COUNT(*) AS c FROM reserva r {where}", tuple(params))
     k_res = (cur.fetchone() or {}).get("c", 0) or 0
 
@@ -941,9 +1109,7 @@ def reportes_index():
     """)
     k_sanc = (cur.fetchone() or {}).get("c", 0) or 0
 
-    # -----------------------
-    # Salas más reservadas (similar a tu consulta #1)
-    # -----------------------
+    # Top salas y top turnos (como ya tenías)
     cur.execute(f"""
         SELECT r.nombre_sala AS sala,
                r.edificio,
@@ -956,9 +1122,6 @@ def reportes_index():
     """, tuple(params))
     top_salas = cur.fetchall()
 
-    # -----------------------
-    # Turnos más demandados (similar a tu consulta #2)
-    # -----------------------
     cur.execute(f"""
         SELECT CONCAT(DATE_FORMAT(t.hora_inicio,'%%H:%%i'),' - ',
                       DATE_FORMAT(t.hora_fin,'%%H:%%i')) AS turno,
@@ -974,14 +1137,27 @@ def reportes_index():
 
     cur.close()
 
-    kpis = {"reservas": k_res, "ocupacion": ocupacion, "asistencias": k_ok, "sanciones": k_sanc}
-    return render_template("reportes.html",
-                           edificios=edificios,
-                           kpis=kpis,
-                           columnas=columnas,
-                           datos=datos,
-                           top_salas=top_salas,
-                           top_turnos=top_turnos)
+    kpis = {
+        "reservas": k_res,
+        "ocupacion": ocupacion,
+        "asistencias": k_ok,
+        "sanciones": k_sanc,
+    }
+
+    return render_template(
+        "reportes.html",
+        edificios=edificios,
+        kpis=kpis,
+        columnas=columnas,
+        datos=datos,
+        top_salas=top_salas,
+        top_turnos=top_turnos,
+        tipo_reporte=tipo,   # se lo mandamos al template
+        desde=desde,
+        hasta=hasta,
+        edif=edif,
+    )
+
 
 # ---------------------------
 # Recuperar contraseña (el login lo linkea)
