@@ -3,6 +3,7 @@ import unicodedata
 from datetime import date, datetime, timedelta
 
 import pymysql
+
 pymysql.install_as_MySQLdb()
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_mysqldb import MySQL
@@ -23,11 +24,11 @@ app.config.update(
 )
 app.jinja_env.cache = {}
 print("Templates dir:", os.path.abspath(app.template_folder))
-print("Static dir:",    os.path.abspath(app.static_folder))
+print("Static dir:", os.path.abspath(app.static_folder))
 
-app.config['MYSQL_HOST'] = 'localhost'
+app.config['MYSQL_HOST'] = '127.0.0.1'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'root'
+app.config['MYSQL_PASSWORD'] = 'VivaCubaLibre1514'
 app.config['MYSQL_DB'] = 'ObligatorioBD1'
 
 mysql = MySQL(app)
@@ -39,12 +40,14 @@ SALAS_REL_DIR = os.path.join('assets', 'Salas')  # relativo a /static
 SALAS_ABS_DIR = os.path.join(app.static_folder, SALAS_REL_DIR)
 _IMG_EXTS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
 
+
 def _slug(s: str) -> str:
     if not s:
         return ''
     s = unicodedata.normalize('NFKD', s)
     s = ''.join(c for c in s if not unicodedata.combining(c))
     return ''.join(ch for ch in s.lower() if ch.isalnum())
+
 
 _INDEX_IMG = {}
 if os.path.isdir(SALAS_ABS_DIR):
@@ -54,17 +57,18 @@ if os.path.isdir(SALAS_ABS_DIR):
             _INDEX_IMG[_slug(base)] = fname
 
 _ALIAS = {
-    _slug('Aula Magna'):         _slug('AulaMagna'),
-    _slug('Biblioteca'):         _slug('BIBLIOTECA'),
-    _slug('Laboratorio'):        _slug('Laboratorio'),
+    _slug('Aula Magna'): _slug('AulaMagna'),
+    _slug('Biblioteca'): _slug('BIBLIOTECA'),
+    _slug('Laboratorio'): _slug('Laboratorio'),
     _slug('Sala de profesores'): _slug('sala-de-profesores'),
-    _slug('Sala 101'):           _slug('Salon101'),
-    _slug('Salón 101'):          _slug('Salon101'),
-    _slug('Sala Posgrado 1'):    _slug('SalaPosgrado'),
-    _slug('Lab A'):              _slug('Laboratorio'),
+    _slug('Sala 101'): _slug('Salon101'),
+    _slug('Salón 101'): _slug('Salon101'),
+    _slug('Sala Posgrado 1'): _slug('SalaPosgrado'),
+    _slug('Lab A'): _slug('Laboratorio'),
 }
 
 from flask import url_for
+
 
 def _imagen_sala_url(nombre_sala: str):
     if not nombre_sala:
@@ -82,6 +86,7 @@ def _imagen_sala_url(nombre_sala: str):
         if s in base_slug or base_slug in s:
             return url_for('static', filename=os.path.join(SALAS_REL_DIR, real))
     return None
+
 
 # ============================================================
 # CONDICIONALES al crear o unirse a una reserva
@@ -111,12 +116,15 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
     # --- 1) Turno ya tomado (solo al CREAR)
     if id_reserva is None:
         cur.execute("""
-            SELECT 1
-            FROM reserva
-            WHERE edificio=%s AND nombre_sala=%s AND fecha=%s AND id_turno=%s
-              AND estado IN ('activa','sin asistencia','finalizada')
-            LIMIT 1
-        """, (edificio, nombre_sala, fecha, id_turno))
+                    SELECT 1
+                    FROM reserva
+                    WHERE edificio = %s
+                      AND nombre_sala = %s
+                      AND fecha = %s
+                      AND id_turno = %s
+                      AND estado IN ('activa', 'sin asistencia', 'finalizada')
+                    LIMIT 1
+                    """, (edificio, nombre_sala, fecha, id_turno))
 
         if cur.fetchone():
             cur.close()
@@ -129,26 +137,26 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
             ))
 
     # --- 2) Límite semanal (máximo 3 activas + sin asistencia)
-    #print("DEBUG — CI:", ci)
-    #print("DEBUG — Fecha nueva reserva:", fecha)
+    # print("DEBUG — CI:", ci)
+    # print("DEBUG — Fecha nueva reserva:", fecha)
 
     cur.execute("""
-        SELECT r.id_reserva, r.fecha, r.estado
-        FROM reserva r
-        JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
-        WHERE rp.ci_participante = %s
-        ORDER BY r.fecha DESC
-    """, (ci,))
-    #print("DEBUG — Todas sus reservas:", cur.fetchall())
+                SELECT r.id_reserva, r.fecha, r.estado
+                FROM reserva r
+                         JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
+                WHERE rp.ci_participante = %s
+                ORDER BY r.fecha DESC
+                """, (ci,))
+    # print("DEBUG — Todas sus reservas:", cur.fetchall())
 
     cur.execute("""
-        SELECT COUNT(*) AS total
-        FROM reserva r
-        JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
-        WHERE rp.ci_participante = %s
-        AND r.estado = 'activa'
-        AND YEARWEEK(r.fecha, 1) = YEARWEEK(%s, 1)
-    """, (ci, fecha))
+                SELECT COUNT(*) AS total
+                FROM reserva r
+                         JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
+                WHERE rp.ci_participante = %s
+                  AND r.estado = 'activa'
+                  AND YEARWEEK(r.fecha, 1) = YEARWEEK(%s, 1)
+                """, (ci, fecha))
 
     row = cur.fetchone()
     total = row["total"]
@@ -170,19 +178,19 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
         SELECT 
     """, ())
     '''
-    
-    # ============================================================
+
+    # ========================================================================
     # No permitir reservar o unirse a una reserva si tiene una sanción activa
-    # ============================================================
+    # ========================================================================
     cur.execute("""
-        SELECT fecha_inicio, fecha_fin
-        FROM sancion_participante
-        WHERE ci_participante = %s
-                AND CURDATE() BETWEEN fecha_inicio and fecha_fin
-    """, (ci,))
+                SELECT fecha_inicio, fecha_fin
+                FROM sancion_participante
+                WHERE ci_participante = %s
+                  AND CURDATE() BETWEEN fecha_inicio and fecha_fin
+                """, (ci,))
     hay_sancion = cur.fetchone()
-    
-    if hay_sancion: 
+
+    if hay_sancion:
         fecha_fin = hay_sancion["fecha_fin"]
         cur.close()
         flash(f"Usted tiene una sanción activa hasta {fecha_fin}.", "danger")
@@ -194,10 +202,11 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
 
     # --- Obtener tipo de sala ---
     cur.execute("""
-        SELECT tipo_sala
-        FROM sala
-        WHERE nombre_sala = %s AND edificio = %s
-    """, (nombre_sala, edificio))
+                SELECT tipo_sala
+                FROM sala
+                WHERE nombre_sala = %s
+                  AND edificio = %s
+                """, (nombre_sala, edificio))
     row = cur.fetchone()
 
     if not row:
@@ -209,12 +218,12 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
 
     # --- Obtener roles del usuario ---
     cur.execute("""
-        SELECT pp.rol, pa.tipo
-        FROM participante_programa_academico pp
-        JOIN programa_academico pa 
-            ON pp.nombre_programa = pa.nombre_programa
-        WHERE pp.ci_participante = %s
-    """, (ci,))
+                SELECT pp.rol, pa.tipo
+                FROM participante_programa_academico pp
+                         JOIN programa_academico pa
+                              ON pp.nombre_programa = pa.nombre_programa
+                WHERE pp.ci_participante = %s
+                """, (ci,))
     roles = cur.fetchall()
 
     # --- Determinar tipo de usuario ---
@@ -275,13 +284,13 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
 
         # --- Verificar capacidad ---
         cur.execute("""
-            SELECT COUNT(rp.ci_participante) AS actuales, s.capacidad
-            FROM reserva r
-            JOIN sala s ON r.nombre_sala = s.nombre_sala 
-                       AND r.edificio = s.edificio
-            LEFT JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
-            WHERE r.id_reserva = %s
-        """, (id_reserva,))
+                    SELECT COUNT(rp.ci_participante) AS actuales, s.capacidad
+                    FROM reserva r
+                             JOIN sala s ON r.nombre_sala = s.nombre_sala
+                        AND r.edificio = s.edificio
+                             LEFT JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
+                    WHERE r.id_reserva = %s
+                    """, (id_reserva,))
         datos_cap = cur.fetchone()
 
         if datos_cap["actuales"] >= datos_cap["capacidad"]:
@@ -291,97 +300,104 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
 
         # --- Evitar reservas simultáneas ---
         cur.execute("""
-            SELECT fecha, id_turno
-            FROM reserva
-            WHERE id_reserva = %s
-        """, (id_reserva,))
+                    SELECT fecha, id_turno
+                    FROM reserva
+                    WHERE id_reserva = %s
+                    """, (id_reserva,))
         info_res = cur.fetchone()
 
         cur.execute("""
-            SELECT 1
-            FROM reserva_participante rp
-            JOIN reserva r ON r.id_reserva = rp.id_reserva
-            WHERE rp.ci_participante = %s
-              AND r.fecha = %s
-              AND r.id_turno = %s
-              AND r.estado IN ('activa', 'sin asistencia')
-        """, (ci, info_res["fecha"], info_res["id_turno"]))
+                    SELECT 1
+                    FROM reserva_participante rp
+                             JOIN reserva r ON r.id_reserva = rp.id_reserva
+                    WHERE rp.ci_participante = %s
+                      AND r.fecha = %s
+                      AND r.id_turno = %s
+                      AND r.estado IN ('activa', 'sin asistencia')
+                    """, (ci, info_res["fecha"], info_res["id_turno"]))
 
         if cur.fetchone():
             cur.close()
             flash("Ya tenés una reserva en este mismo horario.", "danger")
             return redirect(url_for("reserva_detalle", id=id_reserva))
-            
+
     # ============================================================
     #  VALIDACIÓN OBLIGATORIA: NO PERMITIR RESERVAS PASADAS
     # ============================================================
-    # --- Obtener hora_inicio según sea creación o unirse ---
-    if id_reserva is None:
-        # Crear reserva: obtener hora del turno
-        cur.execute("SELECT hora_inicio FROM turno WHERE id_turno=%s", (id_turno,))
-        row = cur.fetchone()
-        if not row:
-            cur.close()
-            flash("El turno no existe.", "danger")
-            return redirect(url_for("reservas_listado"))
-        hora_inicio = row["hora_inicio"]
-
-    else:
-        # Unirse a reserva: obtener hora de la reserva
+    if id_reserva is not None:
         cur.execute("""
-            SELECT r.fecha, t.hora_inicio
-            FROM reserva r
-            JOIN turno t ON r.id_turno = t.id_turno
-            WHERE r.id_reserva=%s
-        """, (id_reserva,))
+                    SELECT r.fecha, t.hora_inicio
+                    FROM reserva r
+                             JOIN turno t ON r.id_turno = t.id_turno
+                    WHERE r.id_reserva = %s
+                    """, (id_reserva,))
         data = cur.fetchone()
+
         if not data:
             cur.close()
             flash("La reserva no existe.", "danger")
             return redirect(url_for("reservas_listado"))
+
         fecha_reserva = data["fecha"]
         hora_inicio = data["hora_inicio"]
 
-    # --- Normalizar fecha ---
-    if isinstance(fecha_reserva, str):
-        fecha_reserva = datetime.strptime(fecha_reserva[:10], "%Y-%m-%d").date()
+        # ============================================================
+        # SI ES CREAR RESERVA -> FECHA Y HORA VIENEN DEL FORMULARIO
+        # ============================================================
+    else:
+        # fecha viene como string: "2025-11-14"
+        fecha_reserva = datetime.strptime(fecha, "%Y-%m-%d").date()
 
-    # --- Normalizar hora ---
-    if isinstance(hora_inicio, timedelta):
+        # obtener hora desde id_turno
+        cur.execute("SELECT hora_inicio FROM turno WHERE id_turno = %s", (id_turno,))
+        row = cur.fetchone()
+
+        if not row:
+            cur.close()
+            flash("El turno no existe.", "danger")
+            return redirect(url_for("reservas_listado"))
+
+        hora_inicio = row["hora_inicio"]
+
+        # ============================================================
+        # Normalizar hora_inicio (puede venir como str, time o timedelta)
+        # ============================================================
+    if isinstance(hora_inicio, str):
+        hora_inicio = datetime.strptime(hora_inicio, "%H:%M:%S").time()
+
+    elif isinstance(hora_inicio, timedelta):
         hora_inicio = (datetime.min + hora_inicio).time()
-    elif isinstance(hora_inicio, str):
-        try:
-            hora_inicio = datetime.strptime(hora_inicio, "%H:%M:%S").time()
-        except ValueError:
-            hora_inicio = datetime.strptime(hora_inicio, "%H:%M").time()
 
-    # --- Combinar fecha y hora y comparar ---
+        # ============================================================
+        # PROHIBIR RESERVAS PASADAS
+        # ============================================================
     fecha_hora_reserva = datetime.combine(fecha_reserva, hora_inicio)
     ahora = datetime.now()
 
     if fecha_hora_reserva < ahora:
         cur.close()
         flash("No puedes crear ni unirte a una reserva pasada.", "danger")
+
         if id_reserva:
             return redirect(url_for("reserva_detalle", id=id_reserva))
         else:
-            return redirect(url_for("reservas_crear",
-                                    edificio=edificio,
-                                    nombre_sala=nombre_sala,
-                                    fecha=fecha))
-    
-    #--- si no hay problemas, devolvemos True
+            return redirect(url_for("reservas_crear"))
+
+    # --- si no hay problemas, devolvemos True
     cur.close()
     return True
+
 
 @app.context_processor
 def inject_now():
     return {'now': datetime.now}
 
+
 def _require_login():
     if "usuario" not in session:
         return redirect(url_for("login"))
     return None
+
 
 # ---------------------------
 # Autenticador
@@ -404,13 +420,13 @@ def login():
             cur.close()
             return render_template("login.html", error="Contraseña incorrecta.")
 
-        #Buscar el CI del participante con ese correo
+        # Buscar el CI del participante con ese correo
         cur.execute("SELECT ci FROM participante WHERE email = %s", (correo,))
         participante = cur.fetchone()
         cur.close()
 
         # Guardar en la sesión tanto correo como CI (si existe)
-        session["usuario"] = {"correo": usuario["correo"],}
+        session["usuario"] = {"correo": usuario["correo"], }
         if participante:
             session["user_ci"] = participante["ci"]
 
@@ -418,10 +434,12 @@ def login():
 
     return render_template("login.html")
 
+
 @app.get("/logout")
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
 
 # ---------------------------
 # Inicio
@@ -446,9 +464,10 @@ def inicio():
     ocupacion = 0
     cur2 = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
     cur2.execute("""
-        SELECT SUM(CASE WHEN rp.asistencia=1 THEN 1 ELSE 0 END) ok
-        FROM reserva r LEFT JOIN reserva_participante rp ON rp.id_reserva=r.id_reserva
-    """)
+                 SELECT SUM(CASE WHEN rp.asistencia = 1 THEN 1 ELSE 0 END) ok
+                 FROM reserva r
+                          LEFT JOIN reserva_participante rp ON rp.id_reserva = r.id_reserva
+                 """)
     asistencias = (cur2.fetchone() or {}).get("ok", 0) or 0
     cur2.close()
 
@@ -467,6 +486,7 @@ def inicio():
     }
     return render_template("inicio.html", kpis=kpis)
 
+
 # ---------------------------
 # Salas
 # ---------------------------
@@ -475,9 +495,9 @@ def salas_listado():
     need = _require_login()
     if need: return need
 
-    edificio  = request.args.get("edificio")
+    edificio = request.args.get("edificio")
     tipo_sala = request.args.get("tipo_sala")
-    cap_min   = request.args.get("cap_min", type=int)
+    cap_min = request.args.get("cap_min", type=int)
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
     cur.execute("SELECT DISTINCT nombre_edificio FROM edificio ORDER BY nombre_edificio")
@@ -500,14 +520,15 @@ def salas_listado():
 
     return render_template("salas.html", salas=salas, edificios=edificios, tipos=tipos)
 
+
 @app.get("/sala")
 def sala_por_query():
     need = _require_login()
     if need: return need
 
-    edificio    = request.args.get("edificio")
+    edificio = request.args.get("edificio")
     nombre_sala = request.args.get("nombre_sala")
-    fecha       = request.args.get("fecha")
+    fecha = request.args.get("fecha")
 
     if not edificio or not nombre_sala:
         flash("Faltan parámetros de sala.", "danger")
@@ -515,7 +536,9 @@ def sala_por_query():
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
     cur.execute("""SELECT nombre_sala, edificio, capacidad, tipo_sala
-                   FROM sala WHERE edificio=%s AND nombre_sala=%s""",
+                   FROM sala
+                   WHERE edificio = %s
+                     AND nombre_sala = %s""",
                 (edificio, nombre_sala))
     sala = cur.fetchone()
     if not sala:
@@ -531,30 +554,35 @@ def sala_por_query():
     ocupados = []
     if fecha:
         cur.execute("""
-            SELECT TIME_FORMAT(t.hora_inicio,'%H:%i') hi
-            FROM reserva r JOIN turno t ON t.id_turno=r.id_turno
-            WHERE r.edificio=%s AND r.nombre_sala=%s AND r.fecha=%s
-              AND r.estado IN ('activa','sin asistencia','finalizada')
-        """, (edificio, nombre_sala, fecha))
+                    SELECT TIME_FORMAT(t.hora_inicio, '%H:%i') hi
+                    FROM reserva r
+                             JOIN turno t ON t.id_turno = r.id_turno
+                    WHERE r.edificio = %s
+                      AND r.nombre_sala = %s
+                      AND r.fecha = %s
+                      AND r.estado IN ('activa', 'sin asistencia', 'finalizada')
+                    """, (edificio, nombre_sala, fecha))
         ocupados = [row["hi"] for row in cur.fetchall()]
     cur.close()
 
     return render_template("sala.html", sala=sala, horarios=horarios, ocupados=ocupados)
 
+
 @app.get("/salas/<path:edificio>/<path:nombre_sala>")
 def sala_detalle(edificio, nombre_sala):
     need = _require_login()
-    if need: 
+    if need:
         return need
 
     fecha = request.args.get("fecha")  # opcional
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
     cur.execute("""
-        SELECT nombre_sala, edificio, capacidad, tipo_sala
-        FROM sala 
-        WHERE edificio=%s AND nombre_sala=%s
-    """, (edificio, nombre_sala))
+                SELECT nombre_sala, edificio, capacidad, tipo_sala
+                FROM sala
+                WHERE edificio = %s
+                  AND nombre_sala = %s
+                """, (edificio, nombre_sala))
     sala = cur.fetchone()
     if not sala:
         cur.close()
@@ -572,16 +600,18 @@ def sala_detalle(edificio, nombre_sala):
     ocupados = []
     if fecha:
         cur.execute("""
-            SELECT TIME_FORMAT(t.hora_inicio,'%%H:%%i') AS hi
-            FROM reserva r 
-            JOIN turno t ON t.id_turno=r.id_turno
-            WHERE r.edificio=%s AND r.nombre_sala=%s AND r.fecha=%s
-              AND r.estado IN ('activa','sin asistencia','finalizada')
-        """, (edificio, nombre_sala, fecha))
+                    SELECT TIME_FORMAT(t.hora_inicio, '%%H:%%i') AS hi
+                    FROM reserva r
+                             JOIN turno t ON t.id_turno = r.id_turno
+                    WHERE r.edificio = %s
+                      AND r.nombre_sala = %s
+                      AND r.fecha = %s
+                      AND r.estado IN ('activa', 'sin asistencia', 'finalizada')
+                    """, (edificio, nombre_sala, fecha))
         ocupados = [row["hi"] for row in cur.fetchall()]
 
     cur.close()
-    return render_template("sala.html", sala=sala, horarios=horarios, ocupados=ocupados, img = img)
+    return render_template("sala.html", sala=sala, horarios=horarios, ocupados=ocupados, img=img)
 
 
 # ---------------------------
@@ -590,33 +620,36 @@ def sala_detalle(edificio, nombre_sala):
 @app.get("/reservas")
 def reservas_listado():
     need = _require_login()
-    if need: 
+    if need:
         return need
 
-    estado    = request.args.get("estado")
-    fecha     = request.args.get("fecha")
+    estado = request.args.get("estado")
+    fecha = request.args.get("fecha")
     sala_like = request.args.get("sala")
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
     sql = """
-        SELECT r.id_reserva,
-               r.fecha,
-               TIME_FORMAT(t.hora_inicio,'%%H:%%i') AS hora_inicio,
-               TIME_FORMAT(t.hora_fin,'%%H:%%i')    AS hora_fin,
-               r.nombre_sala,
-               r.edificio,
-               r.estado
-        FROM reserva r
-        JOIN turno t ON t.id_turno = r.id_turno
-        WHERE 1=1   -- por qué 1=1?
-    """
-    params=[]
+          SELECT r.id_reserva,
+                 r.fecha,
+                 TIME_FORMAT(t.hora_inicio, '%%H:%%i') AS hora_inicio,
+                 TIME_FORMAT(t.hora_fin, '%%H:%%i')    AS hora_fin,
+                 r.nombre_sala,
+                 r.edificio,
+                 r.estado
+          FROM reserva r
+                   JOIN turno t ON t.id_turno = r.id_turno
+          WHERE 1 = 1 -- por qué 1=1? \
+          """
+    params = []
     if estado:
-        sql += " AND r.estado=%s"; params.append(estado)
+        sql += " AND r.estado=%s";
+        params.append(estado)
     if fecha:
-        sql += " AND r.fecha=%s"; params.append(fecha)
+        sql += " AND r.fecha=%s";
+        params.append(fecha)
     if sala_like:
-        sql += " AND r.nombre_sala LIKE %s"; params.append(f"%{sala_like}%")
+        sql += " AND r.nombre_sala LIKE %s";
+        params.append(f"%{sala_like}%")
     sql += " ORDER BY r.fecha DESC, t.hora_inicio"
 
     cur.execute(sql, tuple(params))
@@ -636,17 +669,22 @@ def reserva_detalle(id):
 
     # --- Obtener información principal de la reserva ---
     cur.execute("""
-        SELECT r.id_reserva, r.fecha, r.estado,
-               r.nombre_sala, s.edificio,
-               s.capacidad, s.tipo_sala, e.direccion,
-               TIME_FORMAT(t.hora_inicio,'%%H:%%i') AS hora_inicio,
-               TIME_FORMAT(t.hora_fin,'%%H:%%i') AS hora_fin
-        FROM reserva r
-        JOIN sala  s ON s.nombre_sala = r.nombre_sala AND s.edificio = r.edificio
-        JOIN edificio e on s.edificio = e.nombre_edificio 
-        JOIN turno t ON t.id_turno = r.id_turno
-        WHERE r.id_reserva = %s
-    """, (id,))
+                SELECT r.id_reserva,
+                       r.fecha,
+                       r.estado,
+                       r.nombre_sala,
+                       s.edificio,
+                       s.capacidad,
+                       s.tipo_sala,
+                       e.direccion,
+                       TIME_FORMAT(t.hora_inicio, '%%H:%%i') AS hora_inicio,
+                       TIME_FORMAT(t.hora_fin, '%%H:%%i')    AS hora_fin
+                FROM reserva r
+                         JOIN sala s ON s.nombre_sala = r.nombre_sala AND s.edificio = r.edificio
+                         JOIN edificio e on s.edificio = e.nombre_edificio
+                         JOIN turno t ON t.id_turno = r.id_turno
+                WHERE r.id_reserva = %s
+                """, (id,))
     r = cur.fetchone()
 
     if not r:
@@ -656,21 +694,21 @@ def reserva_detalle(id):
 
     # --- Participantes de la reserva ---
     cur.execute("""
-        SELECT p.ci, CONCAT(p.nombre,' ',p.apellido) AS nombre, rp.asistencia
-        FROM reserva_participante rp
-        JOIN participante p ON p.ci = rp.ci_participante
-        WHERE rp.id_reserva = %s
-        ORDER BY p.apellido, p.nombre
-    """, (id,))
+                SELECT p.ci, CONCAT(p.nombre, ' ', p.apellido) AS nombre, rp.asistencia
+                FROM reserva_participante rp
+                         JOIN participante p ON p.ci = rp.ci_participante
+                WHERE rp.id_reserva = %s
+                ORDER BY p.apellido, p.nombre
+                """, (id,))
     participantes = cur.fetchall()
-
 
     # --- Verificar si el usuario actual forma parte de la reserva ---
     cur.execute("""
-        SELECT 1
-        FROM reserva_participante
-        WHERE id_reserva = %s AND ci_participante = %s
-    """, (id, session["user_ci"]))
+                SELECT 1
+                FROM reserva_participante
+                WHERE id_reserva = %s
+                  AND ci_participante = %s
+                """, (id, session["user_ci"]))
     usuario_en_reserva = cur.fetchone() is not None
 
     cur.close()
@@ -687,33 +725,36 @@ def reserva_detalle(id):
         usuario_en_reserva=usuario_en_reserva
     )
 
+
 @app.route("/baja_reserva/<int:id>", methods=["POST"])
 def baja_reserva(id):
     user_ci = session.get("user_ci")
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
-    #Ver cuántos participantes hay en la reserva
+    # Ver cuántos participantes hay en la reserva
     cur.execute("""
-        SELECT COUNT(*) AS total
-        FROM reserva_participante
-        WHERE id_reserva = %s
-    """, (id,))
+                SELECT COUNT(*) AS total
+                FROM reserva_participante
+                WHERE id_reserva = %s
+                """, (id,))
     total = cur.fetchone()["total"]
 
-    #Eliminar al usuario actual de la reserva
+    # Eliminar al usuario actual de la reserva
     cur.execute("""
-        DELETE FROM reserva_participante
-        WHERE id_reserva = %s AND ci_participante = %s
-    """, (id, user_ci))
+                DELETE
+                FROM reserva_participante
+                WHERE id_reserva = %s
+                  AND ci_participante = %s
+                """, (id, user_ci))
 
-    #Si era el único participante → cancelar la reserva
+    # Si era el único participante → cancelar la reserva
     if total == 1:
         cur.execute("""
-            UPDATE reserva
-            SET estado = 'cancelada'
-            WHERE id_reserva = %s
-        """, (id,))
+                    UPDATE reserva
+                    SET estado = 'cancelada'
+                    WHERE id_reserva = %s
+                    """, (id,))
 
     mysql.connection.commit()
     cur.close()
@@ -721,7 +762,8 @@ def baja_reserva(id):
     flash("Te has dado de baja de la reserva.", "success")
     return redirect(url_for("reservas_listado"))
 
-@app.route("/reservas/nueva", methods=["GET","POST"])
+
+@app.route("/reservas/nueva", methods=["GET", "POST"])
 def reservas_crear():
     need = _require_login()
     if need:
@@ -730,10 +772,10 @@ def reservas_crear():
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
     if request.method == "POST":
-        edificio      = request.form.get("edificio")
-        nombre_sala   = request.form.get("nombre_sala")
-        fecha         = request.form.get("fecha")
-        id_turno      = request.form.get("id_turno", type=int)
+        edificio = request.form.get("edificio")
+        nombre_sala = request.form.get("nombre_sala")
+        fecha = request.form.get("fecha")
+        id_turno = request.form.get("id_turno", type=int)
         clave_reserva = request.form.get("clave_reserva")
 
         if not (edificio and nombre_sala and fecha and id_turno and clave_reserva):
@@ -751,18 +793,18 @@ def reservas_crear():
         nxt = cur.fetchone()["nxt"]
 
         cur.execute("""
-            INSERT INTO reserva (id_reserva, nombre_sala, edificio, fecha, id_turno, estado, clave_reserva)
-            VALUES (%s,%s,%s,%s,%s,'activa',%s)
-        """, (nxt, nombre_sala, edificio, fecha, id_turno, clave_reserva))
+                    INSERT INTO reserva (id_reserva, nombre_sala, edificio, fecha, id_turno, estado, clave_reserva)
+                    VALUES (%s, %s, %s, %s, %s, 'activa', %s)
+                    """, (nxt, nombre_sala, edificio, fecha, id_turno, clave_reserva))
 
         # Auto-agregar usuario logueado si existe en participante
         cur.execute("SELECT ci FROM participante WHERE email=%s", (session["usuario"]["correo"],))
         me = cur.fetchone()
         if me:
             cur.execute("""
-                INSERT IGNORE INTO reserva_participante (ci_participante, id_reserva, fecha_solicitud_reserva, asistencia)
-                VALUES (%s,%s,%s,false)
-            """, (me["ci"], nxt, date.today()))
+                        INSERT IGNORE INTO reserva_participante (ci_participante, id_reserva, fecha_solicitud_reserva, asistencia)
+                        VALUES (%s, %s, %s, false)
+                        """, (me["ci"], nxt, date.today()))
 
         mysql.connection.commit()
         cur.close()
@@ -771,19 +813,20 @@ def reservas_crear():
         return redirect(url_for("reserva_detalle", id=nxt))
 
     # -- GET --
-    edificio    = request.args.get("edificio")
+    edificio = request.args.get("edificio")
     nombre_sala = request.args.get("nombre_sala")
-    fecha       = request.args.get("fecha")
+    fecha = request.args.get("fecha")
 
     if not (edificio and nombre_sala):
         flash("Faltan parámetros de sala.", "danger")
         return redirect(url_for("salas_listado"))
 
     cur.execute("""
-        SELECT nombre_sala, edificio, capacidad, tipo_sala
-        FROM sala
-        WHERE edificio=%s AND nombre_sala=%s
-    """, (edificio, nombre_sala))
+                SELECT nombre_sala, edificio, capacidad, tipo_sala
+                FROM sala
+                WHERE edificio = %s
+                  AND nombre_sala = %s
+                """, (edificio, nombre_sala))
     sala = cur.fetchone()
     if not sala:
         cur.close()
@@ -796,19 +839,22 @@ def reservas_crear():
     turnos_disponibles = []
     if fecha:
         cur.execute("""
-            SELECT id_turno,
-                   DATE_FORMAT(hora_inicio,'%H:%i') AS hi,
-                   DATE_FORMAT(hora_fin,   '%H:%i') AS hf
-            FROM turno ORDER BY hora_inicio
-        """)
+                    SELECT id_turno,
+                           DATE_FORMAT(hora_inicio, '%H:%i') AS hi,
+                           DATE_FORMAT(hora_fin, '%H:%i')    AS hf
+                    FROM turno
+                    ORDER BY hora_inicio
+                    """)
         todos = cur.fetchall()
 
         cur.execute("""
-            SELECT id_turno
-            FROM reserva
-            WHERE edificio=%s AND nombre_sala=%s AND fecha=%s
-              AND estado IN ('activa','sin asistencia','finalizada')
-        """, (edificio, nombre_sala, fecha))
+                    SELECT id_turno
+                    FROM reserva
+                    WHERE edificio = %s
+                      AND nombre_sala = %s
+                      AND fecha = %s
+                      AND estado IN ('activa', 'sin asistencia', 'finalizada')
+                    """, (edificio, nombre_sala, fecha))
         ocupados = {row["id_turno"] for row in cur.fetchall()}
 
         turnos_disponibles = [t for t in todos if t["id_turno"] not in ocupados]
@@ -819,10 +865,11 @@ def reservas_crear():
                            fecha=fecha or "",
                            horarios_disponibles=turnos_disponibles)
 
+
 @app.post("/reservas/unirse")
 def reservas_unirse():
     need = _require_login()
-    if need: 
+    if need:
         return need
 
     id_reserva = request.form.get("id_reserva", type=int)
@@ -852,10 +899,10 @@ def reservas_unirse():
 
     # Para obtener los datos de la reserva a la que se quiere unir:
     cur.execute("""
-        SELECT r.edificio, r.nombre_sala, r.fecha, r.id_turno
-        FROM reserva r
-        WHERE r.id_reserva = %s
-    """, (id_reserva,))
+                SELECT r.edificio, r.nombre_sala, r.fecha, r.id_turno
+                FROM reserva r
+                WHERE r.id_reserva = %s
+                """, (id_reserva,))
     datos = cur.fetchone()
 
     if not datos:
@@ -865,28 +912,27 @@ def reservas_unirse():
 
     # Llamada real al verificador
     verifica_validez = verificador(
-        edificio = datos["edificio"],
-        nombre_sala = datos["nombre_sala"],
-        fecha = datos["fecha"],
-        id_turno = datos["id_turno"],
-        id_reserva = id_reserva,  # para que no cuente esta reserva como nueva
-        clave_ingresa = clave_ingresa
+        edificio=datos["edificio"],
+        nombre_sala=datos["nombre_sala"],
+        fecha=datos["fecha"],
+        id_turno=datos["id_turno"],
+        id_reserva=id_reserva,  # para que no cuente esta reserva como nueva
+        clave_ingresa=clave_ingresa
     )
 
     if verifica_validez is not True:
-       return verifica_validez
+        return verifica_validez
     else:
-         # Si pasa el verificador, recién ahí hacemos el INSERT
+        # Si pasa el verificador, recién ahí hacemos el INSERT
         cur.execute("""
-            INSERT INTO reserva_participante (ci_participante, id_reserva, fecha_solicitud_reserva, asistencia)
-            VALUES (%s,%s,%s,false)
-        """, (ci, id_reserva, date.today()))
+                    INSERT INTO reserva_participante (ci_participante, id_reserva, fecha_solicitud_reserva, asistencia)
+                    VALUES (%s, %s, %s, false)
+                    """, (ci, id_reserva, date.today()))
         mysql.connection.commit()
         cur.close()
 
         flash("Te uniste a la reserva.", "success")
         return redirect(url_for("reserva_detalle", id=id_reserva))
-
 
 
 # ---------------------------
@@ -911,18 +957,20 @@ def asistencia_index():
     ci = row["ci"]
 
     sql = """
-        SELECT r.id_reserva AS id,
-               r.nombre_sala AS sala,
-               CONCAT(TIME_FORMAT(t.hora_inicio,'%%H:%%i'),' - ',TIME_FORMAT(t.hora_fin,'%%H:%%i')) AS hora,
-               MAX(CASE WHEN rp.ci_participante=%s THEN rp.asistencia ELSE NULL END) AS asistio
-        FROM reserva r
-        JOIN turno t ON t.id_turno = r.id_turno
-        LEFT JOIN reserva_participante rp ON rp.id_reserva = r.id_reserva
-        WHERE r.fecha = CURDATE()
-          AND EXISTS(SELECT 1 FROM reserva_participante rp2 WHERE rp2.id_reserva=r.id_reserva AND rp2.ci_participante=%s)
-        GROUP BY r.id_reserva, r.nombre_sala, t.hora_inicio, t.hora_fin
-        ORDER BY t.hora_inicio
-    """
+          SELECT r.id_reserva                                                                             AS id,
+                 r.nombre_sala                                                                            AS sala,
+                 CONCAT(TIME_FORMAT(t.hora_inicio, '%%H:%%i'), ' - ', TIME_FORMAT(t.hora_fin, '%%H:%%i')) AS hora,
+                 MAX(CASE WHEN rp.ci_participante = %s THEN rp.asistencia ELSE NULL END)                  AS asistio
+          FROM reserva r
+                   JOIN turno t ON t.id_turno = r.id_turno
+                   LEFT JOIN reserva_participante rp ON rp.id_reserva = r.id_reserva
+          WHERE r.fecha = CURDATE()
+            AND EXISTS(SELECT 1 \
+                       FROM reserva_participante rp2 \
+                       WHERE rp2.id_reserva = r.id_reserva AND rp2.ci_participante = %s)
+          GROUP BY r.id_reserva, r.nombre_sala, t.hora_inicio, t.hora_fin
+          ORDER BY t.hora_inicio \
+          """
     cur.execute(sql, (ci, ci))
     reservas_hoy = cur.fetchall()
     cur.close()
@@ -936,7 +984,7 @@ def asistencia_marcar():
     if need: return need
 
     id_reserva = request.form.get("id_reserva", type=int)
-    asistio    = request.form.get("asistio") == "1"
+    asistio = request.form.get("asistio") == "1"
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
     # Solo se puede marcar el MISMO día
@@ -955,16 +1003,16 @@ def asistencia_marcar():
         return redirect(url_for("asistencia_index"))
 
     cur.execute("""
-        UPDATE reserva_participante
-        SET asistencia=%s
-        WHERE ci_participante=%s AND id_reserva=%s
-    """, (asistio, me["ci"], id_reserva))
+                UPDATE reserva_participante
+                SET asistencia=%s
+                WHERE ci_participante = %s
+                  AND id_reserva = %s
+                """, (asistio, me["ci"], id_reserva))
     mysql.connection.commit()
     cur.close()
 
     flash("Asistencia actualizada.", "success")
     return redirect(url_for("asistencia_index"))
-
 
 
 # ---------------------------
@@ -1003,6 +1051,7 @@ def sanciones_listado():
     cur.close()
     return render_template("sanciones.html", sanciones=sanciones)
 
+
 # ---------------------------
 # Reportes
 # ---------------------------
@@ -1013,10 +1062,10 @@ def reportes_index():
         return need
 
     # ---- Filtros del formulario ----
-    tipo  = request.args.get("tipo_reporte", "uso_salas")
+    tipo = request.args.get("tipo_reporte", "uso_salas")
     desde = request.args.get("desde")
     hasta = request.args.get("hasta")
-    edif  = request.args.get("edificio")
+    edif = request.args.get("edificio")
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
@@ -1026,7 +1075,7 @@ def reportes_index():
 
     # --- Filtros comunes para consultas basadas en reserva r ---
     filtros = []
-    params  = []
+    params = []
     if desde:
         filtros.append("r.fecha >= %s")
         params.append(desde)
@@ -1073,7 +1122,7 @@ def reportes_index():
         rows = cur.fetchall()
         for x in rows:
             tot = x["tot"] or 0
-            ok  = x["ok"] or 0
+            ok = x["ok"] or 0
             tasa = round(ok * 100.0 / (tot or 1), 1)
             datos.append([str(x["fecha"]), x["id_reserva"], tot, ok, tasa])
 
@@ -1083,13 +1132,15 @@ def reportes_index():
     elif tipo == "sanciones":
         columnas = ["CI", "Nombre", "Desde", "Hasta"]
         cur.execute("""
-            SELECT p.ci, CONCAT(p.nombre,' ',p.apellido) AS nombre,
-                   s.fecha_inicio, s.fecha_fin
-            FROM sancion_participante s
-            JOIN participante p ON p.ci = s.ci_participante
-            ORDER BY s.fecha_inicio DESC
-            LIMIT 100
-        """)
+                    SELECT p.ci,
+                           CONCAT(p.nombre, ' ', p.apellido) AS nombre,
+                           s.fecha_inicio,
+                           s.fecha_fin
+                    FROM sancion_participante s
+                             JOIN participante p ON p.ci = s.ci_participante
+                    ORDER BY s.fecha_inicio DESC
+                    LIMIT 100
+                    """)
         rows = cur.fetchall()
         datos = [[x["ci"], x["nombre"], str(x["fecha_inicio"]), str(x["fecha_fin"])] for x in rows]
 
@@ -1100,19 +1151,17 @@ def reportes_index():
     elif tipo == "prom_participantes":
         columnas = ["Sala", "Promedio de participantes"]
         cur.execute("""
-            SELECT sub.nombre_sala,
-                   ROUND(AVG(sub.cant_participantes),2) AS PromParticipantes
-            FROM (
-                SELECT r.id_reserva,
-                       r.nombre_sala,
-                       COUNT(rp.ci_participante) AS cant_participantes
-                FROM reserva r
-                LEFT JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
-                GROUP BY r.id_reserva, r.nombre_sala
-            ) sub
-            GROUP BY sub.nombre_sala
-            ORDER BY PromParticipantes DESC, sub.nombre_sala
-        """)
+                    SELECT sub.nombre_sala,
+                           ROUND(AVG(sub.cant_participantes), 2) AS PromParticipantes
+                    FROM (SELECT r.id_reserva,
+                                 r.nombre_sala,
+                                 COUNT(rp.ci_participante) AS cant_participantes
+                          FROM reserva r
+                                   LEFT JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
+                          GROUP BY r.id_reserva, r.nombre_sala) sub
+                    GROUP BY sub.nombre_sala
+                    ORDER BY PromParticipantes DESC, sub.nombre_sala
+                    """)
         rows = cur.fetchall()
         datos = [[x["nombre_sala"], x["PromParticipantes"]] for x in rows]
 
@@ -1122,21 +1171,21 @@ def reportes_index():
     elif tipo == "reservas_carrera":
         columnas = ["Facultad", "Carrera", "Reservas"]
         cur.execute("""
-            SELECT f.nombre AS Facultad,
-                   pa.nombre_programa AS Carrera,
-                   COUNT(r.id_reserva) AS CantReservas
-            FROM facultad f
-            LEFT JOIN programa_academico pa
-                   ON pa.id_facultad = f.id_facultad
-            LEFT JOIN participante_programa_academico ppa
-                   ON pa.nombre_programa = ppa.nombre_programa
-            LEFT JOIN reserva_participante rp
-                   ON ppa.ci_participante = rp.ci_participante
-            LEFT JOIN reserva r
-                   ON r.id_reserva = rp.id_reserva
-            GROUP BY f.nombre, pa.nombre_programa
-            ORDER BY Facultad, Carrera
-        """)
+                    SELECT f.nombre            AS Facultad,
+                           pa.nombre_programa  AS Carrera,
+                           COUNT(r.id_reserva) AS CantReservas
+                    FROM facultad f
+                             LEFT JOIN programa_academico pa
+                                       ON pa.id_facultad = f.id_facultad
+                             LEFT JOIN participante_programa_academico ppa
+                                       ON pa.nombre_programa = ppa.nombre_programa
+                             LEFT JOIN reserva_participante rp
+                                       ON ppa.ci_participante = rp.ci_participante
+                             LEFT JOIN reserva r
+                                       ON r.id_reserva = rp.id_reserva
+                    GROUP BY f.nombre, pa.nombre_programa
+                    ORDER BY Facultad, Carrera
+                    """)
         rows = cur.fetchall()
         datos = [[x["Facultad"], x["Carrera"], x["CantReservas"]] for x in rows]
 
@@ -1146,14 +1195,14 @@ def reportes_index():
     elif tipo == "reservas_rol":
         columnas = ["Rol", "Reservas", "Asistencias"]
         cur.execute("""
-            SELECT ppa.rol,
-                   COUNT(rp.id_reserva) AS CantReservas,
-                   COUNT(IF(rp.asistencia = TRUE, 1, NULL)) AS CantAsistencias
-            FROM participante_programa_academico ppa
-            JOIN reserva_participante rp
-                 ON ppa.ci_participante = rp.ci_participante
-            GROUP BY ppa.rol
-        """)
+                    SELECT ppa.rol,
+                           COUNT(rp.id_reserva)                     AS CantReservas,
+                           COUNT(IF(rp.asistencia = TRUE, 1, NULL)) AS CantAsistencias
+                    FROM participante_programa_academico ppa
+                             JOIN reserva_participante rp
+                                  ON ppa.ci_participante = rp.ci_participante
+                    GROUP BY ppa.rol
+                    """)
         rows = cur.fetchall()
         datos = [[x["rol"], x["CantReservas"], x["CantAsistencias"]] for x in rows]
 
@@ -1163,13 +1212,13 @@ def reportes_index():
     elif tipo == "sanciones_rol":
         columnas = ["Rol", "Personas con sanciones"]
         cur.execute("""
-            SELECT ppa.rol,
-                   COUNT(DISTINCT sp.ci_participante) AS CantSanciones
-            FROM participante_programa_academico ppa
-            JOIN sancion_participante sp
-                 ON ppa.ci_participante = sp.ci_participante
-            GROUP BY ppa.rol
-        """)
+                    SELECT ppa.rol,
+                           COUNT(DISTINCT sp.ci_participante) AS CantSanciones
+                    FROM participante_programa_academico ppa
+                             JOIN sancion_participante sp
+                                  ON ppa.ci_participante = sp.ci_participante
+                    GROUP BY ppa.rol
+                    """)
         rows = cur.fetchall()
         datos = [[x["rol"], x["CantSanciones"]] for x in rows]
 
@@ -1179,18 +1228,17 @@ def reportes_index():
     elif tipo == "porcentaje_uso":
         columnas = ["Estado", "% Reservas"]
         cur.execute("""
-            SELECT
-                CASE
-                    WHEN estado IN ('activa','finalizada') THEN 'Utilizadas'
-                    ELSE 'No utilizadas'
-                END AS EstadoReserva,
-                ROUND(
-                    COUNT(*) * 100.0 / (SELECT COUNT(*) FROM reserva),
-                    1
-                ) AS PorcentajeReservas
-            FROM reserva
-            GROUP BY EstadoReserva
-        """)
+                    SELECT CASE
+                               WHEN estado IN ('activa', 'finalizada') THEN 'Utilizadas'
+                               ELSE 'No utilizadas'
+                               END AS EstadoReserva,
+                           ROUND(
+                                   COUNT(*) * 100.0 / (SELECT COUNT(*) FROM reserva),
+                                   1
+                           )       AS PorcentajeReservas
+                    FROM reserva
+                    GROUP BY EstadoReserva
+                    """)
         rows = cur.fetchall()
         datos = [[x["EstadoReserva"], x["PorcentajeReservas"]] for x in rows]
 
@@ -1200,14 +1248,14 @@ def reportes_index():
     elif tipo == "reservas_turno":
         columnas = ["Turno", "Reservas"]
         cur.execute("""
-            SELECT CONCAT(DATE_FORMAT(t.hora_inicio,'%H:%i'),' - ',
-                          DATE_FORMAT(t.hora_fin,'%H:%i')) AS turno,
-                   COUNT(r.id_reserva) AS CantReservas
-            FROM turno t
-            LEFT JOIN reserva r ON t.id_turno = r.id_turno
-            GROUP BY t.hora_inicio, t.hora_fin
-            ORDER BY t.hora_inicio
-        """)
+                    SELECT CONCAT(DATE_FORMAT(t.hora_inicio, '%H:%i'), ' - ',
+                                  DATE_FORMAT(t.hora_fin, '%H:%i')) AS turno,
+                           COUNT(r.id_reserva)                      AS CantReservas
+                    FROM turno t
+                             LEFT JOIN reserva r ON t.id_turno = r.id_turno
+                    GROUP BY t.hora_inicio, t.hora_fin
+                    ORDER BY t.hora_inicio
+                    """)
         rows = cur.fetchall()
         datos = [[x["turno"], x["CantReservas"]] for x in rows]
 
@@ -1217,17 +1265,17 @@ def reportes_index():
     elif tipo == "reservas_semestre":
         columnas = ["ID", "Sala", "Edificio", "Fecha", "Turno"]
         cur.execute("""
-            SELECT r.id_reserva,
-                   r.nombre_sala,
-                   r.edificio,
-                   r.fecha,
-                   CONCAT(DATE_FORMAT(t.hora_inicio,'%H:%i'),' - ',
-                          DATE_FORMAT(t.hora_fin,'%H:%i')) AS turno
-            FROM reserva r
-            JOIN turno t ON t.id_turno = r.id_turno
-            WHERE r.fecha BETWEEN '2025-08-12' AND '2025-12-05'
-            ORDER BY r.fecha, t.hora_inicio
-        """)
+                    SELECT r.id_reserva,
+                           r.nombre_sala,
+                           r.edificio,
+                           r.fecha,
+                           CONCAT(DATE_FORMAT(t.hora_inicio, '%H:%i'), ' - ',
+                                  DATE_FORMAT(t.hora_fin, '%H:%i')) AS turno
+                    FROM reserva r
+                             JOIN turno t ON t.id_turno = r.id_turno
+                    WHERE r.fecha BETWEEN '2025-08-12' AND '2025-12-05'
+                    ORDER BY r.fecha, t.hora_inicio
+                    """)
         rows = cur.fetchall()
         datos = [[x["id_reserva"], x["nombre_sala"], x["edificio"],
                   str(x["fecha"]), x["turno"]] for x in rows]
@@ -1238,14 +1286,16 @@ def reportes_index():
     elif tipo == "participantes_sanciones":
         columnas = ["CI", "Nombre", "Apellido", "Sanciones"]
         cur.execute("""
-            SELECT p.nombre, p.apellido, p.ci,
-                   COUNT(*) AS CantSanciones
-            FROM participante p
-            JOIN sancion_participante sp
-                 ON sp.ci_participante = p.ci
-            GROUP BY p.nombre, p.apellido, p.ci
-            ORDER BY CantSanciones DESC
-        """)
+                    SELECT p.nombre,
+                           p.apellido,
+                           p.ci,
+                           COUNT(*) AS CantSanciones
+                    FROM participante p
+                             JOIN sancion_participante sp
+                                  ON sp.ci_participante = p.ci
+                    GROUP BY p.nombre, p.apellido, p.ci
+                    ORDER BY CantSanciones DESC
+                    """)
         rows = cur.fetchall()
         datos = [[x["ci"], x["nombre"], x["apellido"], x["CantSanciones"]] for x in rows]
 
@@ -1274,9 +1324,10 @@ def reportes_index():
     k_ok = (cur.fetchone() or {}).get("ok", 0) or 0
 
     cur.execute("""
-        SELECT COUNT(*) AS c FROM sancion_participante
-        WHERE CURDATE() BETWEEN fecha_inicio AND fecha_fin
-    """)
+                SELECT COUNT(*) AS c
+                FROM sancion_participante
+                WHERE CURDATE() BETWEEN fecha_inicio AND fecha_fin
+                """)
     k_sanc = (cur.fetchone() or {}).get("c", 0) or 0
 
     # Top salas y top turnos (como ya tenías)
@@ -1322,7 +1373,7 @@ def reportes_index():
         datos=datos,
         top_salas=top_salas,
         top_turnos=top_turnos,
-        tipo_reporte=tipo,   # se lo mandamos al template
+        tipo_reporte=tipo,  # se lo mandamos al template
         desde=desde,
         hasta=hasta,
         edif=edif,
@@ -1339,6 +1390,7 @@ def recuperar_contraseña():
         return redirect(url_for("login"))
     return render_template("recuperar_contraseña.html")
 
+
 # --- Compat: enlaces antiguos a cambiar_contraseña ---
 @app.get("/seguridad/cambiar-contrasena", endpoint="cambiar_contraseña")
 def cambiar_contraseña_legacy():
@@ -1353,6 +1405,6 @@ def cambiar_contraseña_legacy():
 def index():
     return redirect(url_for("login"))
 
+
 if __name__ == '__main__':
     app.run(debug=True)
-
