@@ -27,7 +27,7 @@ print("Static dir:",    os.path.abspath(app.static_folder))
 
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'tu_contra'
+app.config['MYSQL_PASSWORD'] = 'root'
 app.config['MYSQL_DB'] = 'ObligatorioBD1'
 
 mysql = MySQL(app)
@@ -663,7 +663,7 @@ def reservas_unirse():
     # 3) Reglas reales de tu institución
     compatibles = {
         "libre": ["docente", "alumno_grado", "alumno_posgrado"],
-        "posgrado": ["docente", "alumno_posgrado"],
+        "posgrado": ["alumno_posgrado"],
         "docente": ["docente"]
     }
 
