@@ -3,12 +3,11 @@
 USE ObligatorioBD1;
 SET GLOBAL event_scheduler = ON;
 
-CREATE EVENT IF NOT EXISTS actualizar_estados_reservas
-    ON SCHEDULE EVERY 1 DAY
-    DO
-    UPDATE ObligatorioBD1.reserva
-    SET estado = CASE
-                     WHEN fecha < CURDATE() AND estado = 'activa' THEN 'finalizada'
-                     ELSE estado
-    END
-    WHERE fecha < CURDATE();
+CREATE EVENT actualizar_estados_reservas
+ON SCHEDULE EVERY 1 DAY
+STARTS TIMESTAMP(CURRENT_DATE, '23:00:00')
+DO
+    UPDATE reserva
+    SET estado = 'finalizada'
+    WHERE fecha < NOW()
+      AND estado = 'activa';

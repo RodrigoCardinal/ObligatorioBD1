@@ -109,76 +109,6 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
 
     ci = row["ci"]
 
-    # ============================================================
-    # VALIDACIONES COMUNES: turnos, límite semanal y diario
-    # ============================================================
-
-    # --- 1) Turno ya tomado (solo al CREAR)
-    if id_reserva is None:
-        cur.execute("""
-                    SELECT 1
-                    FROM reserva
-                    WHERE edificio = %s
-                      AND nombre_sala = %s
-                      AND fecha = %s
-                      AND id_turno = %s
-                      AND estado IN ('activa', 'sin asistencia', 'finalizada')
-                    LIMIT 1
-                    """, (edificio, nombre_sala, fecha, id_turno))
-
-        if cur.fetchone():
-            cur.close()
-            flash("Ese turno ya fue tomado. Elegí otro.", "danger")
-            return redirect(url_for(
-                "reservas_crear",
-                edificio=edificio,
-                nombre_sala=nombre_sala,
-                fecha=fecha
-            ))
-
-    # --- 2) Límite semanal (máximo 3 activas + sin asistencia)
-    # print("DEBUG — CI:", ci)
-    # print("DEBUG — Fecha nueva reserva:", fecha)
-
-    cur.execute("""
-                SELECT r.id_reserva, r.fecha, r.estado
-                FROM reserva r
-                         JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
-                WHERE rp.ci_participante = %s
-                ORDER BY r.fecha DESC
-                """, (ci,))
-    # print("DEBUG — Todas sus reservas:", cur.fetchall())
-
-    cur.execute("""
-                SELECT COUNT(*) AS total
-                FROM reserva r
-                         JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
-                WHERE rp.ci_participante = %s
-                  AND r.estado = 'activa'
-                  AND YEARWEEK(r.fecha, 1) = YEARWEEK(%s, 1)
-                """, (ci, fecha))
-
-    row = cur.fetchone()
-    total = row["total"]
-
-    if total >= 3:
-        cur.close()
-        flash("No podés participar en más de 3 reservas activas.", "danger")
-
-        if id_reserva is None:  # creando
-            return redirect(url_for("reservas_crear",
-                                    edificio=edificio,
-                                    nombre_sala=nombre_sala,
-                                    fecha=fecha))
-        else:  # uniéndose
-            return redirect(url_for("reserva_detalle", id=id_reserva))
-    # --- Límite diario -> 2 horas máximo
-    ''''
-    cur.execute("""
-        SELECT 
-    """, ())
-    '''
-
     # ========================================================================
     # No permitir reservar o unirse a una reserva si tiene una sanción activa
     # ========================================================================
@@ -259,6 +189,156 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
             return redirect(url_for("reserva_detalle", id=id_reserva))
 
     # ============================================================
+    #  VALIDACIÓN OBLIGATORIA: NO PERMITIR RESERVAS PASADAS
+    # ============================================================
+    if id_reserva is not None:
+        cur.execute("""
+                    SELECT r.fecha, t.hora_inicio
+                    FROM reserva r
+                             JOIN turno t ON r.id_turno = t.id_turno
+                    WHERE r.id_reserva = %s
+                    """, (id_reserva,))
+        data = cur.fetchone()
+
+        if not data:
+            cur.close()
+            flash("La reserva no existe.", "danger")
+            return redirect(url_for("reservas_listado"))
+
+        fecha_reserva = data["fecha"]
+        hora_inicio = data["hora_inicio"]
+
+        # ============================================================
+        # SI ES CREAR RESERVA -> FECHA Y HORA VIENEN DEL FORMULARIO
+        # ============================================================
+    else:
+        # fecha viene como string: "2025-11-14"
+        fecha_reserva = datetime.strptime(fecha, "%Y-%m-%d").date()
+
+        # obtener hora desde id_turno
+        cur.execute("SELECT hora_inicio FROM turno WHERE id_turno = %s", (id_turno,))
+        row = cur.fetchone()
+
+        if not row:
+            cur.close()
+            flash("El turno no existe.", "danger")
+            return redirect(url_for("reservas_listado"))
+
+        hora_inicio = row["hora_inicio"]
+
+        # ============================================================
+        # Normalizar hora_inicio (puede venir como str, time o timedelta)
+        # ============================================================
+    if isinstance(hora_inicio, str):
+        hora_inicio = datetime.strptime(hora_inicio, "%H:%M:%S").time()
+
+    elif isinstance(hora_inicio, timedelta):
+        hora_inicio = (datetime.min + hora_inicio).time()
+
+        # ============================================================
+        # PROHIBIR RESERVAS PASADAS
+        # ============================================================
+    fecha_hora_reserva = datetime.combine(fecha_reserva, hora_inicio)
+    ahora = datetime.now()
+
+    if fecha_hora_reserva < ahora:
+        cur.close()
+        flash("No puedes crear ni unirte a una reserva pasada.", "danger")
+
+        if id_reserva:
+            return redirect(url_for("reserva_detalle", id=id_reserva))
+        else:
+            return redirect(url_for("reservas_crear"))
+
+    # ============================================================
+    # VALIDACIONES COMUNES: turnos, límite semanal y diario
+    # ============================================================
+
+    # --- 1) Turno ya tomado (solo al CREAR)
+    if id_reserva is None:
+        cur.execute("""
+                    SELECT 1
+                    FROM reserva
+                    WHERE edificio = %s
+                      AND nombre_sala = %s
+                      AND fecha = %s
+                      AND id_turno = %s
+                      AND estado IN ('activa', 'sin asistencia', 'finalizada')
+                    LIMIT 1
+                    """, (edificio, nombre_sala, fecha, id_turno))
+
+        if cur.fetchone():
+            cur.close()
+            flash("Ese turno ya fue tomado. Elegí otro.", "danger")
+            return redirect(url_for(
+                "reservas_crear",
+                edificio=edificio,
+                nombre_sala=nombre_sala,
+                fecha=fecha
+            ))
+
+    # --- 2) Límite semanal (máximo 3 activas + sin asistencia)
+    # print("DEBUG — CI:", ci)
+    # print("DEBUG — Fecha nueva reserva:", fecha)
+
+    cur.execute("""
+                SELECT r.id_reserva, r.fecha, r.estado
+                FROM reserva r
+                         JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
+                WHERE rp.ci_participante = %s
+                ORDER BY r.fecha DESC
+                """, (ci,))
+    # print("DEBUG — Todas sus reservas:", cur.fetchall())
+
+    cur.execute("""
+                SELECT COUNT(*) AS total
+                FROM reserva r
+                         JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
+                WHERE rp.ci_participante = %s
+                  AND r.estado = 'activa'
+                  AND YEARWEEK(r.fecha, 1) = YEARWEEK(%s, 1)
+                """, (ci, fecha))
+
+    row = cur.fetchone()
+    total = row["total"]
+
+    if total >= 3:
+        cur.close()
+        flash("No podés participar en más de 3 reservas activas en la semana.", "danger")
+
+        if id_reserva is None:  # creando
+            return redirect(url_for("reservas_crear",
+                                    edificio=edificio,
+                                    nombre_sala=nombre_sala,
+                                    fecha=fecha))
+        else:  # uniéndose
+            return redirect(url_for("reserva_detalle", id=id_reserva))
+
+    # --- 3) Límite diario: máximo 2 reservas
+    cur.execute("""
+                SELECT COUNT(*) AS total
+                FROM reserva r
+                         JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
+                WHERE rp.ci_participante = %s
+                  AND r.estado = 'activa'
+                  AND r.fecha = %s
+                """, (ci, fecha))
+
+    row = cur.fetchone()
+    total = row["total"] if row else 0  # <--- evita NoneType
+
+    if total >= 2:
+        cur.close()
+        flash("No podés participar en más de 2 reservas por día.", "danger")
+        if id_reserva is None:  # creando
+            return redirect(url_for("reservas_crear",
+                                    edificio=edificio,
+                                    nombre_sala=nombre_sala,
+                                    fecha=fecha))
+        else:  # uniéndose
+            return redirect(url_for("reserva_detalle", id=id_reserva))
+
+    # ============================================================
     # VALIDACIONES EXTRA AL UNIRSE (id_reserva != None)
     # ============================================================
     if id_reserva is not None:
@@ -321,67 +401,6 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
             flash("Ya tenés una reserva en este mismo horario.", "danger")
             return redirect(url_for("reserva_detalle", id=id_reserva))
 
-    # ============================================================
-    #  VALIDACIÓN OBLIGATORIA: NO PERMITIR RESERVAS PASADAS
-    # ============================================================
-    if id_reserva is not None:
-        cur.execute("""
-                    SELECT r.fecha, t.hora_inicio
-                    FROM reserva r
-                             JOIN turno t ON r.id_turno = t.id_turno
-                    WHERE r.id_reserva = %s
-                    """, (id_reserva,))
-        data = cur.fetchone()
-
-        if not data:
-            cur.close()
-            flash("La reserva no existe.", "danger")
-            return redirect(url_for("reservas_listado"))
-
-        fecha_reserva = data["fecha"]
-        hora_inicio = data["hora_inicio"]
-
-        # ============================================================
-        # SI ES CREAR RESERVA -> FECHA Y HORA VIENEN DEL FORMULARIO
-        # ============================================================
-    else:
-        # fecha viene como string: "2025-11-14"
-        fecha_reserva = datetime.strptime(fecha, "%Y-%m-%d").date()
-
-        # obtener hora desde id_turno
-        cur.execute("SELECT hora_inicio FROM turno WHERE id_turno = %s", (id_turno,))
-        row = cur.fetchone()
-
-        if not row:
-            cur.close()
-            flash("El turno no existe.", "danger")
-            return redirect(url_for("reservas_listado"))
-
-        hora_inicio = row["hora_inicio"]
-
-        # ============================================================
-        # Normalizar hora_inicio (puede venir como str, time o timedelta)
-        # ============================================================
-    if isinstance(hora_inicio, str):
-        hora_inicio = datetime.strptime(hora_inicio, "%H:%M:%S").time()
-
-    elif isinstance(hora_inicio, timedelta):
-        hora_inicio = (datetime.min + hora_inicio).time()
-
-        # ============================================================
-        # PROHIBIR RESERVAS PASADAS
-        # ============================================================
-    fecha_hora_reserva = datetime.combine(fecha_reserva, hora_inicio)
-    ahora = datetime.now()
-
-    if fecha_hora_reserva < ahora:
-        cur.close()
-        flash("No puedes crear ni unirte a una reserva pasada.", "danger")
-
-        if id_reserva:
-            return redirect(url_for("reserva_detalle", id=id_reserva))
-        else:
-            return redirect(url_for("reservas_crear"))
 
     # --- si no hay problemas, devolvemos True
     cur.close()
