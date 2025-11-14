@@ -27,7 +27,7 @@ print("Static dir:",    os.path.abspath(app.static_folder))
 
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'rootpassword'
+app.config['MYSQL_PASSWORD'] = 'root'
 app.config['MYSQL_DB'] = 'ObligatorioBD1'
 
 mysql = MySQL(app)
@@ -565,6 +565,23 @@ def reservas_unirse():
         return redirect(url_for("reservas_listado"))
     ci = row["ci"]
 
+
+      #Verificar si ya tiene 3 reservas activas esta semana
+    cur.execute("""
+        SELECT COUNT(*) AS total
+        FROM reserva_participante rp
+        JOIN reserva r ON r.id_reserva = rp.id_reserva
+        WHERE rp.ci_participante = %s
+          AND r.estado = 'activa'
+          AND YEARWEEK(r.fecha, 1) = YEARWEEK(CURDATE(), 1)
+    """, (ci,))
+    total = cur.fetchone()["total"]
+
+    if total >= 3:
+        cur.close()
+        flash("No podés participar en más de 3 reservas activas en una misma semana.", "danger")
+        return redirect(url_for("reserva_detalle", id=id_reserva))
+
     # Evitar duplicado
     cur.execute("SELECT 1 FROM reserva_participante WHERE ci_participante=%s AND id_reserva=%s",
                 (ci, id_reserva))
@@ -588,6 +605,103 @@ def reservas_unirse():
         cur.close()
         flash("Contraseña de la reserva incorrecta.", "danger")
         return redirect(url_for("reserva_detalle", id=id_reserva))
+    
+    #  No se permite tener más participantes que la capacidad de la sala.
+    cur.execute("""
+        SELECT COUNT(rp.ci_participante) AS actuales, s.capacidad
+        FROM reserva r
+        JOIN sala s 
+            ON r.nombre_sala = s.nombre_sala 
+        AND r.edificio = s.edificio
+        LEFT JOIN reserva_participante rp 
+            ON r.id_reserva = rp.id_reserva
+        WHERE r.id_reserva = %s
+    """, (id_reserva,))
+    datos_cap = cur.fetchone()
+
+    if datos_cap and datos_cap["actuales"] >= datos_cap["capacidad"]:
+        cur.close()
+        flash("La sala ya alcanzó su capacidad máxima.", "danger")
+        return redirect(url_for("reserva_detalle", id=id_reserva))
+    
+
+
+    # Validación tipo de sala vs tipo participante CHAT
+    # 1) Obtener tipo de sala
+    cur.execute("""
+        SELECT s.tipo_sala
+        FROM reserva r
+        JOIN sala s 
+          ON r.nombre_sala = s.nombre_sala
+         AND r.edificio = s.edificio
+        WHERE r.id_reserva = %s
+    """, (id_reserva,))
+    row = cur.fetchone()
+    tipo_sala = row["tipo_sala"]
+
+    # 2) Obtener tipo real del usuario (alumno_grado, alumno_posgrado o docente)
+    cur.execute("""
+        SELECT pp.rol, pa.tipo
+        FROM participante_programa_academico pp
+        JOIN programa_academico pa
+          ON pp.nombre_programa = pa.nombre_programa
+        WHERE pp.ci_participante = %s
+    """, (session["usuario_ci"],))
+    roles = cur.fetchall()
+
+    tipo_user = None
+
+    for r in roles:
+        if r["rol"] == "docente":
+            tipo_user = "docente"
+            break
+        if r["rol"] == "alumno" and r["tipo"] == "posgrado":
+            tipo_user = "alumno_posgrado"
+        else:
+            tipo_user = "alumno_grado"
+
+    # 3) Reglas reales de tu institución
+    compatibles = {
+        "libre": ["docente", "alumno_grado", "alumno_posgrado"],
+        "posgrado": ["docente", "alumno_posgrado"],
+        "docente": ["docente"]
+    }
+
+    # 4) Validar compatibilidad
+    if tipo_user not in compatibles.get(tipo_sala, []):
+        flash("No estás autorizado para reservar este tipo de sala.", "danger")
+        return redirect(url_for("reserva_detalle", id=id_reserva))
+    
+
+#  Evitar reservas simultáneas 
+# Obtener fecha y turno de la reserva actual
+    cur.execute("""
+        SELECT fecha, id_turno
+        FROM reserva
+        WHERE id_reserva = %s
+    """, (id_reserva,))
+    info_res = cur.fetchone()
+
+    fecha_res = info_res["fecha"]
+    turno_res = info_res["id_turno"]
+
+    # Verificar si el usuario ya tiene una reserva en esa fecha y turno
+    cur.execute("""
+        SELECT 1
+        FROM reserva_participante rp
+        JOIN reserva r ON r.id_reserva = rp.id_reserva
+        WHERE rp.ci_participante = %s
+        AND r.fecha = %s
+        AND r.id_turno = %s
+        AND r.estado IN ('activa', 'sin asistencia')
+    """, (session["usuario_ci"], fecha_res, turno_res))
+
+    choque = cur.fetchone()
+
+    if choque:
+        flash("Ya tenés una reserva en este mismo horario.", "danger")
+        return redirect(url_for("reserva_detalle", id=id_reserva))
+    
 
     # Si la clave es correcta (o la reserva no tiene clave), insertamos
     cur.execute("""
