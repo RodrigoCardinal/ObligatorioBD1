@@ -30,3 +30,9 @@ conn.commit()
 conn.close()
 
 print("Todas las contraseñas fueron rehasheadas con werkzeug.security.")
+
+
+
+
+
+
