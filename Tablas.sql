@@ -63,6 +63,7 @@ CREATE TABLE reserva (
     fecha DATE,
     id_turno INT,
     estado VARCHAR(20),
+    clave_reserva VARCHAR(255),
     FOREIGN KEY (nombre_sala,edificio) REFERENCES sala (nombre_sala,edificio),
     FOREIGN KEY (id_turno) REFERENCES turno(id_turno)
 );

@@ -27,7 +27,7 @@ print("Static dir:",    os.path.abspath(app.static_folder))
 
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'root'
+app.config['MYSQL_PASSWORD'] = 'tu_contra'
 app.config['MYSQL_DB'] = 'ObligatorioBD1'
 
 mysql = MySQL(app)
@@ -646,7 +646,7 @@ def reservas_unirse():
         JOIN programa_academico pa
           ON pp.nombre_programa = pa.nombre_programa
         WHERE pp.ci_participante = %s
-    """, (session["usuario_ci"],))
+    """, (session["user_ci"],))
     roles = cur.fetchall()
 
     tipo_user = None
@@ -694,7 +694,7 @@ def reservas_unirse():
         AND r.fecha = %s
         AND r.id_turno = %s
         AND r.estado IN ('activa', 'sin asistencia')
-    """, (session["usuario_ci"], fecha_res, turno_res))
+    """, (session["user_ci"], fecha_res, turno_res))
 
     choque = cur.fetchone()
 
@@ -868,9 +868,6 @@ def reportes_index():
 
     columnas, datos = [], []
 
-    # ============================================================
-    # 1) Salas más reservadas (YA LO TENÍAS)
-    # ============================================================
     if tipo == "uso_salas":
         columnas = ["Sala", "Edificio", "Reservas"]
         cur.execute(f"""
