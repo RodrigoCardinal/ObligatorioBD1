@@ -4,8 +4,7 @@ USE ObligatorioBD1;
 SET GLOBAL event_scheduler = ON;
 
 CREATE EVENT actualizar_estados_reservas
-ON SCHEDULE EVERY 1 DAY
-STARTS TIMESTAMP(CURRENT_DATE, '23:00:00')
+ON SCHEDULE EVERY 1 HOUR
 DO
     UPDATE reserva
     SET estado = 'finalizada'
