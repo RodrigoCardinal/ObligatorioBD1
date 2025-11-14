@@ -566,7 +566,7 @@ def reservas_unirse():
     ci = row["ci"]
 
 
-      #Verificar si ya tiene 3 reservas activas esta semana
+    ##Verificar si ya tiene 3 reservas activas esta semana
     cur.execute("""
         SELECT COUNT(*) AS total
         FROM reserva_participante rp
@@ -606,7 +606,7 @@ def reservas_unirse():
         flash("Contraseña de la reserva incorrecta.", "danger")
         return redirect(url_for("reserva_detalle", id=id_reserva))
     
-    #  No se permite tener más participantes que la capacidad de la sala.
+    ## No se permite tener más participantes que la capacidad de la sala.
     cur.execute("""
         SELECT COUNT(rp.ci_participante) AS actuales, s.capacidad
         FROM reserva r
@@ -673,7 +673,7 @@ def reservas_unirse():
         return redirect(url_for("reserva_detalle", id=id_reserva))
     
 
-#  Evitar reservas simultáneas 
+##  Evitar reservas simultáneas 
 # Obtener fecha y turno de la reserva actual
     cur.execute("""
         SELECT fecha, id_turno
