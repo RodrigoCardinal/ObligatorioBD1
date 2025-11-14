@@ -325,7 +325,7 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
                 """, (ci, fecha))
 
     row = cur.fetchone()
-    total = row["total"] if row else 0  # <--- evita NoneType
+    total = row["total"] if row else 0
 
     if total >= 2:
         cur.close()
