@@ -26,15 +26,6 @@
         <p><strong>Capacidad:</strong> {{ sala.capacidad }} personas</p>
         <p><strong>Tipo:</strong> {{ sala.tipo_sala }}</p>
 
-        <p class="mb-1"><strong>Recursos:</strong></p>
-        <ul class="mb-0">
-          {% for r in recursos %}
-            <li>{{ r }}</li>
-          {% else %}
-            <li class="text-muted">—</li>
-          {% endfor %}
-        </ul>
-
       </div>
     </div>
   </div>
@@ -66,7 +57,7 @@
                     width: 14px;
                     height: 14px;
                     display: inline-block;
-                    background-color: {{ '#dc3545' if ocupado else '#28a745' }};
+                    background-color:{{ '#dc3545' if ocupado else '#28a745' }};
                   "
                 ></span>
               </div>
