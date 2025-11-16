@@ -14,40 +14,76 @@
 
 <div class="row g-4">
   <div class="col-lg-8">
-    <div class="card"><div class="card-body">
-    <img src="{{ img }}" alt={{ sala.nombre_sala }} class="room-cover mb-4">
+    <div class="card">
+      <div class="card-body">
 
-      <hr>
-      <h5 class="card-title mb-3">Información</h5>
-      <p><strong>Edificio:</strong> {{ sala.edificio }}</p>
-      <p><strong>Capacidad:</strong> {{ sala.capacidad }} personas</p>
-      <p><strong>Tipo:</strong> {{ sala.tipo_sala }}</p>
+        <img src="{{ img }}" alt="{{ sala.nombre_sala }}" class="room-cover mb-4">
 
-      <p class="mb-1"><strong>Recursos:</strong></p>
-      <ul class="mb-0">
-        {% for r in recursos %}<li>{{ r }}</li>{% else %}<li class="text-muted">—</li>{% endfor %}
-      </ul>
-    </div></div>
+        <hr>
+        <h5 class="card-title mb-3">Información</h5>
+
+        <p><strong>Edificio:</strong> {{ sala.edificio }}</p>
+        <p><strong>Capacidad:</strong> {{ sala.capacidad }} personas</p>
+        <p><strong>Tipo:</strong> {{ sala.tipo_sala }}</p>
+
+        <p class="mb-1"><strong>Recursos:</strong></p>
+        <ul class="mb-0">
+          {% for r in recursos %}
+            <li>{{ r }}</li>
+          {% else %}
+            <li class="text-muted">—</li>
+          {% endfor %}
+        </ul>
+
+      </div>
+    </div>
   </div>
 
   <div class="col-lg-4">
-    <div class="card mb-3"><div class="card-body">
-      <h5 class="card-title">Disponibilidad del día (1 h)</h5>
-      <div class="d-grid gap-2">
-        {% for h in horarios %}
-          <button class="btn btn-outline-secondary" {% if h.estado != 'Libre' %}disabled{% endif %}>
-            {{ h.hora_inicio }}–{{ h.hora_fin }} ({{ h.estado }})
-          </button>
-        {% else %}
-          <p class="text-muted mb-0">No hay franjas definidas.</p>
-        {% endfor %}
-      </div>
-    </div></div>
+
+    <div class="card mb-3">
+      <div class="card-body">
+
+        <h5 class="card-title">Disponibilidad del día (1 h)</h5>
+
+        <div class="d-grid gap-2">
+            {% for h in horarios %}
+              {% set hi = h.hora_inicio %}
+              {% set hf = h.hora_fin %}
+              {% set ocupado = hi in ocupados %}
+
+              <div class="d-flex align-items-center justify-content-between p-2 border rounded">
+                <div>
+                  <strong>{{ hi }}–{{ hf }}</strong>
+                  <span class="text-muted">
+                    ({{ 'Ocupado' if ocupado else 'Libre' }})
+                  </span>
+                </div>
+
+                <span
+                  class="rounded-circle"
+                  style="
+                    width: 14px;
+                    height: 14px;
+                    display: inline-block;
+                    background-color: {{ '#dc3545' if ocupado else '#28a745' }};
+                  "
+                ></span>
+              </div>
+
+            {% else %}
+              <p class="text-muted mb-0">No hay franjas definidas.</p>
+            {% endfor %}
+          </div>
+                </div>
+              </div>
 
     <a class="btn btn-primary w-100"
        href="{{ url_for('reservas_crear', edificio=sala.edificio, nombre_sala=sala.nombre_sala) }}">
       Reservar esta sala
     </a>
+
   </div>
 </div>
+
 {% endblock %}

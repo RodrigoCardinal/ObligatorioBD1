@@ -98,3 +98,15 @@ footer{ background: var(--ucu-900); color:#e6ecff; padding:18px 0; }
 
 /* Imagen del detalle de sala */
 .room-cover{ width:100%; height:260px; object-fit:cover; border-radius:12px; }
+
+/* ====== Badge para el rol en navbar ====== */
+.role-badge{
+  background: var(--ucu-700);
+  color: #fff;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: 10px;
+  display: inline-block;
+}

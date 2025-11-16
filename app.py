@@ -1,14 +1,14 @@
 import os
 import unicodedata
 from datetime import date, datetime, timedelta
-
 import pymysql
-
 pymysql.install_as_MySQLdb()
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 from flask_mysqldb import MySQL
 import MySQLdb.cursors
-from werkzeug.security import check_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
+from conexiones import get_admin_connection, get_user_connection
+
 
 # ---------------------------
 # App & DB
@@ -26,9 +26,9 @@ app.jinja_env.cache = {}
 print("Templates dir:", os.path.abspath(app.template_folder))
 print("Static dir:", os.path.abspath(app.static_folder))
 
-app.config['MYSQL_HOST'] = '127.0.0.1'
+app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'VivaCubaLibre1514'
+app.config['MYSQL_PASSWORD'] = 'root'
 app.config['MYSQL_DB'] = 'ObligatorioBD1'
 
 mysql = MySQL(app)
@@ -98,16 +98,10 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
     # ============================================================
     # OBTENER CI DEL USUARIO
     # ============================================================
-    cur.execute("SELECT ci FROM participante WHERE email=%s",
-                (session["usuario"]["correo"],))
-    row = cur.fetchone()
-
-    if not row:
-        cur.close()
+    ci = session["usuario"]["ci"]
+    if ci is None:
         flash("Tu correo no tiene CI asociado en participante.", "danger")
         return redirect(url_for("reservas_listado"))
-
-    ci = row["ci"]
 
     # ========================================================================
     # No permitir reservar o unirse a una reserva si tiene una sanción activa
@@ -428,7 +422,8 @@ def login():
         contraseña = request.form["contraseña"]
 
         cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-        cur.execute("SELECT correo, contraseña FROM login WHERE correo = %s", (correo,))
+        #Buscamos la existecia del usuario y si este es administrador
+        cur.execute("SELECT correo, contraseña, es_administrador FROM login WHERE correo = %s", (correo,))
         usuario = cur.fetchone()
 
         if not usuario:
@@ -442,12 +437,17 @@ def login():
         # Buscar el CI del participante con ese correo
         cur.execute("SELECT ci FROM participante WHERE email = %s", (correo,))
         participante = cur.fetchone()
+
+        es_admin = usuario["es_administrador"] if usuario else 0
+        print(es_admin)
         cur.close()
 
-        # Guardar en la sesión tanto correo como CI (si existe)
-        session["usuario"] = {"correo": usuario["correo"], }
-        if participante:
-            session["user_ci"] = participante["ci"]
+        # Armar la sesión
+        session["usuario"] = {
+            "correo": usuario["correo"],
+            "ci": participante["ci"] if participante else None,
+            "es_administrador": bool(es_admin)
+        }
 
         return redirect(url_for("inicio"))
 
@@ -567,7 +567,13 @@ def sala_por_query():
 
     sala["img"] = _imagen_sala_url(sala["nombre_sala"])
 
-    cur.execute("SELECT id_turno, hora_inicio, hora_fin FROM turno ORDER BY hora_inicio")
+    cur.execute("""
+        SELECT id_turno,
+            TIME_FORMAT(hora_inicio, '%%H:%%i') AS hora_inicio,
+            TIME_FORMAT(hora_fin, '%%H:%%i') AS hora_fin
+        FROM turno
+        ORDER BY hora_inicio
+    """)
     horarios = cur.fetchall()
 
     ocupados = []
@@ -593,7 +599,9 @@ def sala_detalle(edificio, nombre_sala):
     if need:
         return need
 
-    fecha = request.args.get("fecha")  # opcional
+    fecha = request.args.get("fecha")  
+    if not fecha:
+        fecha = date.today().isoformat()
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
     cur.execute("""
@@ -612,7 +620,14 @@ def sala_detalle(edificio, nombre_sala):
     img = _imagen_sala_url(sala["nombre_sala"])
 
     # Turnos del día
-    cur.execute("SELECT id_turno, hora_inicio, hora_fin FROM turno ORDER BY hora_inicio")
+    cur.execute("""
+        SELECT 
+            id_turno,
+            TIME_FORMAT(hora_inicio, '%H:%i') AS hora_inicio,
+            TIME_FORMAT(hora_fin, '%H:%i') AS hora_fin
+        FROM turno
+        ORDER BY hora_inicio
+    """)
     horarios = cur.fetchall()
 
     # Marcamos ocupados si pasaron fecha
@@ -629,6 +644,8 @@ def sala_detalle(edificio, nombre_sala):
                     """, (edificio, nombre_sala, fecha))
         ocupados = [row["hi"] for row in cur.fetchall()]
 
+    print("HORARIOS:", horarios)
+    print("OCUPADOS:", ocupados)
     cur.close()
     return render_template("sala.html", sala=sala, horarios=horarios, ocupados=ocupados, img=img)
 
@@ -657,7 +674,6 @@ def reservas_listado():
                  r.estado
           FROM reserva r
                    JOIN turno t ON t.id_turno = r.id_turno
-          WHERE 1 = 1 -- por qué 1=1? \
           """
     params = []
     if estado:
@@ -669,10 +685,11 @@ def reservas_listado():
     if sala_like:
         sql += " AND r.nombre_sala LIKE %s";
         params.append(f"%{sala_like}%")
-    sql += " ORDER BY r.fecha DESC, t.hora_inicio"
+    sql += " ORDER BY r.fecha DESC, t.hora_inicio DESC"
 
     cur.execute(sql, tuple(params))
     reservas = cur.fetchall()
+
     cur.close()
 
     return render_template("reservas.html", reservas=reservas)
@@ -727,7 +744,7 @@ def reserva_detalle(id):
                 FROM reserva_participante
                 WHERE id_reserva = %s
                   AND ci_participante = %s
-                """, (id, session["user_ci"]))
+                """, (id, session["usuario"]["ci"]))
     usuario_en_reserva = cur.fetchone() is not None
 
     cur.close()
@@ -747,7 +764,7 @@ def reserva_detalle(id):
 
 @app.route("/baja_reserva/<int:id>", methods=["POST"])
 def baja_reserva(id):
-    user_ci = session.get("user_ci")
+    user_ci = session["usuario"].get("ci")
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
@@ -817,13 +834,13 @@ def reservas_crear():
                     """, (nxt, nombre_sala, edificio, fecha, id_turno, clave_reserva))
 
         # Auto-agregar usuario logueado si existe en participante
-        cur.execute("SELECT ci FROM participante WHERE email=%s", (session["usuario"]["correo"],))
-        me = cur.fetchone()
-        if me:
+        ci = session["usuario"]["ci"]
+        if ci:
             cur.execute("""
-                        INSERT IGNORE INTO reserva_participante (ci_participante, id_reserva, fecha_solicitud_reserva, asistencia)
-                        VALUES (%s, %s, %s, false)
-                        """, (me["ci"], nxt, date.today()))
+                INSERT IGNORE INTO reserva_participante 
+                    (ci_participante, id_reserva, fecha_solicitud_reserva, asistencia)
+                VALUES (%s, %s, %s, false)
+            """, (ci, nxt, date.today()))
 
         mysql.connection.commit()
         cur.close()
@@ -908,13 +925,10 @@ def reservas_unirse():
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
     # Obtener CI del usuario logueado
-    cur.execute("SELECT ci FROM participante WHERE email=%s", (session["usuario"]["correo"],))
-    row = cur.fetchone()
-    if not row:
-        cur.close()
+    ci = session["usuario"]["ci"]
+    if ci is None:
         flash("Tu correo no tiene CI asociado en participante.", "danger")
         return redirect(url_for("reservas_listado"))
-    ci = row["ci"]
 
     # Para obtener los datos de la reserva a la que se quiere unir:
     cur.execute("""
@@ -963,70 +977,112 @@ def asistencia_index():
     if need:
         return need
 
-    correo = session["usuario"]["correo"]
+    if not session["usuario"].get("es_administrador"):
+        return redirect(url_for("inicio"))
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-    cur.execute("SELECT ci FROM participante WHERE email=%s", (correo,))
-    row = cur.fetchone()
-    if not row:
-        cur.close()
-        flash("Tu correo no tiene CI asociado en participante.", "danger")
-        return render_template("asistencia.html", reservas_hoy=[])
 
-    ci = row["ci"]
-
-    sql = """
-          SELECT r.id_reserva                                                                             AS id,
-                 r.nombre_sala                                                                            AS sala,
-                 CONCAT(TIME_FORMAT(t.hora_inicio, '%%H:%%i'), ' - ', TIME_FORMAT(t.hora_fin, '%%H:%%i')) AS hora,
-                 MAX(CASE WHEN rp.ci_participante = %s THEN rp.asistencia ELSE NULL END)                  AS asistio
-          FROM reserva r
-                   JOIN turno t ON t.id_turno = r.id_turno
-                   LEFT JOIN reserva_participante rp ON rp.id_reserva = r.id_reserva
-          WHERE r.fecha = CURDATE()
-            AND EXISTS(SELECT 1 \
-                       FROM reserva_participante rp2 \
-                       WHERE rp2.id_reserva = r.id_reserva AND rp2.ci_participante = %s)
-          GROUP BY r.id_reserva, r.nombre_sala, t.hora_inicio, t.hora_fin
-          ORDER BY t.hora_inicio \
-          """
-    cur.execute(sql, (ci, ci))
+    # Traer reservas de hoy con fecha y horas formateadas como strings
+    cur.execute("""
+        SELECT 
+            r.id_reserva AS id,
+            r.nombre_sala AS sala,
+            DATE_FORMAT(r.fecha, '%d/%m/%Y') AS fecha,
+            TIME_FORMAT(t.hora_inicio, '%H:%i') AS hora_inicio,
+            TIME_FORMAT(t.hora_fin, '%H:%i') AS hora_fin
+        FROM reserva r
+        JOIN turno t ON t.id_turno = r.id_turno
+        WHERE r.fecha = CURDATE()
+        ORDER BY t.hora_inicio
+    """)
     reservas_hoy = cur.fetchall()
-    cur.close()
 
+    # Traer participantes por reserva
+    for r in reservas_hoy:
+        cur.execute("""
+            SELECT p.ci,
+                   p.nombre,
+                   p.apellido,
+                   IFNULL(rp.asistencia, 0) AS asistio
+            FROM reserva_participante rp
+            JOIN participante p ON p.ci = rp.ci_participante
+            WHERE rp.id_reserva = %s
+        """, (r["id"],))
+        r["participantes"] = cur.fetchall()
+
+    # DEBUG rápido: imprime en logs lo que se envía al template
+    app.logger.debug("reservas_hoy: %s", reservas_hoy)
+
+    cur.close()
     return render_template("asistencia.html", reservas_hoy=reservas_hoy)
 
 
 @app.post("/asistencia/marcar")
 def asistencia_marcar():
     need = _require_login()
-    if need: return need
+    if need: 
+        return need
+    
+    if not session["usuario"].get("es_administrador"):
+        return redirect(url_for("inicio"))
 
     id_reserva = request.form.get("id_reserva", type=int)
-    asistio = request.form.get("asistio") == "1"
+    if not id_reserva:
+        flash("Reserva inválida.", "danger")
+        return redirect(url_for("asistencia_index"))
+
+    # Obtener lista de CI marcados como asistieron
+    asistentes = request.form.getlist("asistio")  # ej ["123", "555"]
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
-    # Solo se puede marcar el MISMO día
+
+    # Validar fecha del día
     cur.execute("SELECT fecha FROM reserva WHERE id_reserva=%s", (id_reserva,))
     row = cur.fetchone()
+
     if not row or str(row["fecha"]) != str(date.today()):
         cur.close()
         flash("La asistencia solo se puede marcar el mismo día de la reserva.", "warning")
         return redirect(url_for("asistencia_index"))
 
-    cur.execute("SELECT ci FROM participante WHERE email=%s", (session["usuario"]["correo"],))
-    me = cur.fetchone()
-    if not me:
-        cur.close()
-        flash("No se pudo marcar asistencia.", "danger")
-        return redirect(url_for("asistencia_index"))
+    # 1) Poner asistencia = 1 a los marcados
+    if asistentes:
+        cur.execute("""
+            UPDATE reserva_participante
+            SET asistencia = 1
+            WHERE id_reserva = %s AND ci_participante IN ({})
+        """.format(",".join(["%s"] * len(asistentes))),
+        [id_reserva] + asistentes)
 
+    # 2) Poner asistencia = 0 a los NO marcados
     cur.execute("""
-                UPDATE reserva_participante
-                SET asistencia=%s
-                WHERE ci_participante = %s
-                  AND id_reserva = %s
-                """, (asistio, me["ci"], id_reserva))
+        UPDATE reserva_participante
+        SET asistencia = 0
+        WHERE id_reserva = %s
+          AND ci_participante NOT IN ({})
+    """.format(",".join(["%s"] * len(asistentes))) if asistentes else
+    """
+        UPDATE reserva_participante
+        SET asistencia = 0
+        WHERE id_reserva = %s
+    """,
+    [id_reserva] + asistentes if asistentes else [id_reserva])
+
+    # 3) Si nadie asistió → actualizar reserva a "sin asistencia"
+    cur.execute("""
+        SELECT COUNT(*) AS total
+        FROM reserva_participante
+        WHERE id_reserva=%s AND asistencia=1
+    """, (id_reserva,))
+    total_asistieron = cur.fetchone()["total"]
+
+    if total_asistieron == 0:
+        cur.execute("""
+            UPDATE reserva
+            SET estado = 'sin asistencia'
+            WHERE id_reserva = %s
+        """, (id_reserva,))
+
     mysql.connection.commit()
     cur.close()
 
@@ -1079,6 +1135,9 @@ def reportes_index():
     need = _require_login()
     if need:
         return need
+
+    if not session["usuario"].get("es_administrador"):
+        return redirect(url_for("inicio"))
 
     # ---- Filtros del formulario ----
     tipo = request.args.get("tipo_reporte", "uso_salas")
@@ -1398,10 +1457,243 @@ def reportes_index():
         edif=edif,
     )
 
+#=================================================
+# ABM(Alta, baja y modificación) de participantes
+#=================================================
+@app.route('/participantes',methods=["GET"])
+def participantes_listado():
+    need = _require_login()
+    if need:
+        return need
 
-# ---------------------------
+    if not session["usuario"].get("es_administrador"):
+        print("no eres administrador")
+        return redirect(url_for("inicio"))
+
+    #Lista todos los participantes del sistema con sus datos de login
+    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+    cur.execute("""
+        SELECT 
+            p.ci, 
+            p.nombre, 
+            p.apellido, 
+            p.email,
+            l.correo as correo_login,
+            l.es_administrador
+        FROM participante p
+        LEFT JOIN login l ON p.email = l.correo
+        ORDER BY p.apellido, p.nombre
+    """)
+    participantes = cur.fetchall()
+    cur.close()
+    
+    return render_template('participantes.html', participantes=participantes)
+
+@app.route('/participantes/agregar', methods=['POST'])
+def participantes_agregar():
+        #Agrega un nuevo participante y su login
+    need = _require_login()
+    if need:
+        return need
+
+    if not session["usuario"].get("es_administrador"):
+        print("no eres administrador")
+        return redirect(url_for("inicio"))
+
+
+    ci = request.form.get('ci', '').strip()
+    nombre = request.form.get('nombre', '').strip()
+    apellido = request.form.get('apellido', '').strip()
+    correo = request.form.get('email', '').strip()
+    contraseña = request.form.get('contraseña', '').strip()
+    es_admin = 1 if request.form.get('es_administrador') == 'admin' else 0
+    
+    # Validaciones
+    if not all([ci, nombre, apellido, correo, contraseña]):
+        flash('Todos los campos son obligatorios', 'danger')
+        return redirect(url_for('participantes_listado'))
+    
+    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+    
+    # Verificar que no exista el CI o correo
+    cur.execute("SELECT ci FROM participante WHERE ci = %s", (ci,))
+    existe_ci = cur.fetchone()
+    
+    cur.execute("SELECT correo FROM login WHERE correo = %s", (correo,))
+    existe_correo = cur.fetchone()
+    
+    if existe_ci:
+        flash('Ya existe un participante con esa CI', 'danger')
+        cur.close()
+        return redirect(url_for('participantes_listado'))
+    
+    if existe_correo:
+        flash('Ya existe un usuario con ese correo electrónico', 'danger')
+        cur.close()
+        return redirect(url_for('participantes_listado'))
+    
+    # Hash de la contraseña
+    hash_contraseña = generate_password_hash(contraseña)
+    
+    try:
+        # Insertar en participante
+        cur.execute("""
+            INSERT INTO participante (ci, nombre, apellido, email)
+            VALUES (%s, %s, %s, %s)
+        """, (ci, nombre, apellido, correo))
+        
+        # Insertar en login
+        cur.execute("""
+            INSERT INTO login (correo, contraseña, es_administrador)
+            VALUES (%s, %s, %s)
+        """, (correo, hash_contraseña, es_admin))
+        
+        mysql.connection.commit()
+        flash(f'Participante {nombre} {apellido} agregado exitosamente', 'success')
+    except Exception as e:
+        mysql.connection.rollback()
+        flash(f'Error al agregar participante: {str(e)}', 'danger')
+    finally:
+        cur.close()
+    
+    return redirect(url_for('participantes_listado'))
+
+@app.route('/participantes/modificar/<int:ci>', methods=['POST'])
+def participantes_modificar(ci):
+    need = _require_login()
+    if need:
+        return need
+
+    if not session["usuario"].get("es_administrador"):
+        print("no eres administrador")
+        return redirect(url_for("inicio"))
+    
+    #Modifica un participante existente
+    nombre = request.form.get('nombre', '').strip()
+    apellido = request.form.get('apellido', '').strip()
+    correo = request.form.get('correo', '').strip()
+    contraseña = request.form.get('contraseña', '').strip()
+    es_admin = 1 if request.form.get('es_administrador') == 'admin' else 0
+    
+    if not all([nombre, apellido, correo]):
+        flash('Nombre, apellido y correo son obligatorios', 'danger')
+        return redirect(url_for('participantes_listado'))
+    
+    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+    
+    # Obtener el correo anterior del participante
+    cur.execute("SELECT email FROM participante WHERE ci = %s", (ci,))
+    participante = cur.fetchone()
+    
+    if not participante:
+        flash('Participante no encontrado', 'danger')
+        cur.close()
+        return redirect(url_for('participantes_listado'))
+    
+    correo_anterior = participante['email']
+    
+    try:
+        # Actualizar participante
+        cur.execute("""
+            UPDATE participante 
+            SET nombre = %s, apellido = %s, email = %s
+            WHERE ci = %s
+        """, (nombre, apellido, correo, ci))
+        
+        # Si cambió el correo, actualizar también en login
+        if correo != correo_anterior:
+            # Verificar que el nuevo correo no exista
+            cur.execute("SELECT correo FROM login WHERE correo = %s AND correo != %s", (correo, correo_anterior))
+            existe_correo = cur.fetchone()
+            
+            if existe_correo:
+                raise Exception('El nuevo correo ya está en uso')
+            
+            # Actualizar correo en login
+            cur.execute("""
+                UPDATE login 
+                SET correo = %s, es_administrador = %s
+                WHERE correo = %s
+            """, (correo, es_admin, correo_anterior))
+        else:
+            # Solo actualizar es_administrador
+            cur.execute("""
+                UPDATE login 
+                SET es_administrador = %s
+                WHERE correo = %s
+            """, (es_admin, correo))
+        
+        # Si hay contraseña nueva, actualizarla
+        if contraseña:
+            hash_contraseña = generate_password_hash(contraseña)
+            cur.execute("""
+                UPDATE login 
+                SET contraseña = %s
+                WHERE correo = %s
+            """, (hash_contraseña, correo))
+        
+        mysql.connection.commit()
+        flash(f'Participante {nombre} {apellido} modificado exitosamente', 'success')
+    except Exception as e:
+        mysql.connection.rollback()
+        flash(f'Error al modificar participante: {str(e)}', 'danger')
+    finally:
+        cur.close()
+    
+    return redirect(url_for('participantes_listado'))
+
+
+@app.route('/participantes/eliminar/<int:ci>', methods=['POST'])
+def participantes_eliminar(ci):
+    """Elimina (da de baja) un participante"""
+    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+    
+    # Obtener datos del participante
+    cur.execute("SELECT nombre, apellido, email FROM participante WHERE ci = %s", (ci,))
+    participante = cur.fetchone()
+    
+    if not participante:
+        flash('Participante no encontrado', 'danger')
+        cur.close()
+        return redirect(url_for('participantes_listado'))
+    
+    nombre_completo = f"{participante['nombre']} {participante['apellido']}"
+    correo = participante['email']
+    
+    try:
+        # Verificar si tiene reservas activas
+        cur.execute("""
+            SELECT COUNT(*) as total 
+            FROM reserva_participante rp
+            JOIN reserva r ON rp.id_reserva = r.id_reserva
+            WHERE rp.ci_participante = %s AND r.fecha >= CURDATE()
+        """, (ci,))
+        result = cur.fetchone()
+        
+        if result['total'] > 0:
+            flash(f'No se puede eliminar: {nombre_completo} tiene reservas activas', 'danger')
+            cur.close()
+            return redirect(url_for('participantes_listado'))
+        
+        # Eliminar login
+        cur.execute("DELETE FROM login WHERE correo = %s", (correo,))
+        
+        # Eliminar participante (las FK en cascada eliminarán el resto)
+        cur.execute("DELETE FROM participante WHERE ci = %s", (ci,))
+        
+        mysql.connection.commit()
+        flash(f'{nombre_completo} ha sido dado de baja exitosamente', 'warning')
+    except Exception as e:
+        mysql.connection.rollback()
+        flash(f'Error al eliminar participante: {str(e)}', 'danger')
+    finally:
+        cur.close()
+    
+    return redirect(url_for('participantes_listado'))
+
+# ==========================================
 # Recuperar contraseña (el login lo linkea)
-# ---------------------------
+# ==========================================
 @app.route('/recuperar-contrasena', methods=["GET", "POST"])
 def recuperar_contraseña():
     if request.method == "POST":

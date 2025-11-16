@@ -28,6 +28,7 @@
             <li class="nav-item"><a class="nav-link{% if request.path.startswith('/asistencia') %} active{% endif %}" href="{{ url_for('asistencia_index') }}">Asistencia</a></li>
             <li class="nav-item"><a class="nav-link{% if request.path.startswith('/sanciones') %} active{% endif %}" href="{{ url_for('sanciones_listado') }}">Sanciones</a></li>
             <li class="nav-item"><a class="nav-link{% if request.path.startswith('/seguridad') %} active{% endif %}" href="{{ url_for('cambiar_contraseña') }}">Seguridad</a></li>
+            <li class="nav-item"><a class="nav-link{% if request.path.startswith('/participantes') %} active{% endif %}" href="{{ url_for('participantes_listado') }}">Participantes</a></li>
             <li class="nav-item"><a class="nav-link text-warning fw-bold" href="{{ url_for('logout') }}">Salir</a></li>
           {% else %}
             <li class="nav-item"><a class="nav-link{% if request.path.startswith('/login') %} active{% endif %}" href="{{ url_for('login') }}">Login</a></li>
@@ -73,7 +74,7 @@
 
   <footer class="mt-auto">
     <div class="container">
-      <small>&copy; {{ 2025 }} Universidad Católica del Uruguay — Sistema de Salas</small>
+      <small>&copy; {{ 2025 }} Universidad Católica del Uruguay</small>
     </div>
   </footer>
 

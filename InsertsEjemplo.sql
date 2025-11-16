@@ -8,7 +8,7 @@ INSERT INTO ObligatorioBD1.login (correo, contraseña, es_administrador) VALUES
 ('ana.rodriguez@ucu.edu.uy', 'Ana_Rdz!89',False),
 ('carlos.silva@ucu.edu.uy', 'SilvaC#33$',False),
 ('sofia.fernandez@ucu.edu.uy', 'SofiFz_2025!',False),
-('martin.lopez@ucu.edu.uy', 'Mlopez#77*',False);
+('martin.lopez@ucu.edu.uy', 'Mlopez#77*',True);
 -- Tabla: facultad
 INSERT INTO ObligatorioBD1.facultad (id_facultad, nombre) VALUES
 (1, 'Facultad de Ingeniería y Tecnologías'),
