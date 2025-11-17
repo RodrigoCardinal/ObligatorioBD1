@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% block title %}Modificar Reserva | Sistema de Salas{% endblock %}
+
+{% block hero_title %}
+  <h1 class="hero-title mb-1">Modificar Reserva</h1>
+  <p class="hero-sub mb-0">Editar información de la reserva #{{ r.id_reserva }}</p>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <!-- Formulario principal -->
+  <div class="col-lg-8">
+    <div class="card mb-4">
+      <div class="card-body p-4">
+        <h2 class="section-title h4 mb-4">Información de la Reserva</h2>
+        
+        <form method="POST" action="{{ url_for('reservas_editar', id=r.id_reserva) }}" id="formEditar">
+          <!-- Edificio -->
+          <div class="mb-3">
+            <label for="edificio" class="form-label fw-semibold">Edificio</label>
+            <select class="form-select" id="edificio" name="edificio" required>
+              <option value="">Seleccionar edificio...</option>
+              {% for e in edificios %}
+                <option value="{{ e.nombre_edificio }}" {{ 'selected' if e.nombre_edificio == r.edificio else '' }}>
+                  {{ e.nombre_edificio }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Sala -->
+          <div class="mb-3">
+            <label for="nombre_sala" class="form-label fw-semibold">Sala</label>
+            <select class="form-select" id="nombre_sala" name="nombre_sala" required>
+              <option value="">Primero selecciona un edificio...</option>
+            </select>
+          </div>
+
+          <!-- Fecha -->
+          <div class="mb-3">
+            <label for="fecha" class="form-label fw-semibold">Fecha</label>
+            <input type="date" class="form-control" id="fecha" name="fecha" 
+                   value="{{ r.fecha }}" required>
+            <div class="form-text">La fecha debe ser hoy o posterior</div>
+          </div>
+
+          <!-- Turno -->
+          <div class="mb-3">
+            <label for="id_turno" class="form-label fw-semibold">Turno</label>
+            <select class="form-select" id="id_turno" name="id_turno" required>
+              {% for t in turnos %}
+                <option value="{{ t.id_turno }}" {{ 'selected' if t.id_turno == r.id_turno else '' }}>
+                  {{ t.hora_inicio }} - {{ t.hora_fin }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Estado -->
+          <div class="mb-4">
+            <label for="estado" class="form-label fw-semibold">Estado</label>
+            <select class="form-select" id="estado" name="estado" required>
+              <option value="activa" {{ 'selected' if r.estado == 'activa' else '' }}>Activa</option>
+              <option value="cancelada" {{ 'selected' if r.estado == 'cancelada' else '' }}>Cancelada</option>
+              <option value="finalizada" {{ 'selected' if r.estado == 'finalizada' else '' }}>Finalizada</option>
+              <option value="sin asistencia" {{ 'selected' if r.estado == 'sin asistencia' else '' }}>Sin Asistencia</option>
+            </select>
+          </div>
+
+          <!-- Alerta de cambios -->
+          <div class="alert alert-info d-flex align-items-center gap-2 mb-4" id="estado-alert">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+            </svg>
+            <span>Modificá los campos necesarios y guardá los cambios</span>
+          </div>
+
+          <!-- Botones de acción -->
+          <div class="d-flex gap-2 justify-content-end">
+            <a href="{{ url_for('reserva_detalle', id=r.id_reserva) }}" class="btn btn-outline-secondary">
+              Cancelar
+            </a>
+            <button type="submit" class="btn btn-primary px-4">
+              Guardar Cambios
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Información adicional -->
+    <div class="mt-3">
+      <small class="text-muted">
+        <strong>Nota:</strong> Al cambiar la sala o el turno, verificá que no haya otra reserva activa en ese horario.
+      </small>
+    </div>
+  </div>
+
+  <!-- Panel de participantes -->
+  <div class="col-lg-4">
+    <div class="card">
+      <div class="card-body p-4">
+        <h3 class="h5 mb-3">Participantes ({{ participantes|length }})</h3>
+        
+        {% if participantes %}
+          <div class="list-group list-group-flush">
+            {% for p in participantes %}
+              <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                <div>
+                  <strong class="d-block">{{ p.nombre }}</strong>
+                  <small class="text-muted">CI: {{ p.ci }}</small>
+                </div>
+                <form method="POST" action="{{ url_for('reservas_eliminar_participante', id=r.id_reserva, ci=p.ci) }}"
+                      class="d-inline"
+                      onsubmit="return confirm('¿Eliminar a {{ p.nombre }} de esta reserva?');">
+                  <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar participante">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                      <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                      <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                    </svg>
+                  </button>
+                </form>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-muted mb-0">No hay participantes en esta reserva</p>
+        {% endif %}
+        
+        {% if participantes|length > 0 %}
+          <div class="mt-3 p-2 bg-light rounded">
+            <small class="text-muted">
+              <strong>Advertencia:</strong> Si eliminás todos los participantes, la reserva se cancelará automáticamente.
+            </small>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Datos de salas por edificio (generados desde Flask)
+  const salasPorEdificio = {{ salas_json|safe }};
+  
+  // Referencias a elementos
+  const selectEdificio = document.getElementById('edificio');
+  const selectSala = document.getElementById('nombre_sala');
+  const salaActual = '{{ r.nombre_sala }}';
+  
+  // Función para cargar salas según edificio
+  function cargarSalas(edificio) {
+    selectSala.innerHTML = '<option value="">Seleccionar sala...</option>';
+    
+    if (edificio && salasPorEdificio[edificio]) {
+      salasPorEdificio[edificio].forEach(sala => {
+        const option = document.createElement('option');
+        option.value = sala;
+        option.textContent = sala;
+        if (sala === salaActual) {
+          option.selected = true;
+        }
+        selectSala.appendChild(option);
+      });
+      selectSala.disabled = false;
+    } else {
+      selectSala.innerHTML = '<option value="">Primero selecciona un edificio...</option>';
+      selectSala.disabled = true;
+    }
+  }
+  
+  // Cargar salas al cambiar edificio
+  selectEdificio.addEventListener('change', function() {
+    cargarSalas(this.value);
+  });
+  
+  // Cargar salas iniciales
+  if (selectEdificio.value) {
+    cargarSalas(selectEdificio.value);
+  }
+  
+  // Validación de fecha mínima (hoy)
+  const inputFecha = document.getElementById('fecha');
+  const hoy = new Date().toISOString().split('T')[0];
+  inputFecha.setAttribute('min', hoy);
+  
+  // Detectar cambios en el formulario
+  const formEditar = document.getElementById('formEditar');
+  const valoresOriginales = {
+    edificio: selectEdificio.value,
+    sala: '{{ r.nombre_sala }}',
+    fecha: inputFecha.value,
+    turno: document.getElementById('id_turno').value,
+    estado: document.getElementById('estado').value
+  };
+  
+  function verificarCambios() {
+    const alertDiv = document.getElementById('estado-alert');
+    const cambios = [];
+    
+    if (selectEdificio.value !== valoresOriginales.edificio) {
+      cambios.push('edificio');
+    }
+    if (selectSala.value !== valoresOriginales.sala) {
+      cambios.push('sala');
+    }
+    if (inputFecha.value !== valoresOriginales.fecha) {
+      cambios.push('fecha');
+    }
+    if (document.getElementById('id_turno').value !== valoresOriginales.turno) {
+      cambios.push('turno');
+    }
+    if (document.getElementById('estado').value !== valoresOriginales.estado) {
+      cambios.push('estado');
+    }
+    
+    if (cambios.length > 0) {
+      alertDiv.classList.remove('alert-info');
+      alertDiv.classList.add('alert-warning');
+      alertDiv.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+        </svg>
+        <span>Se modificará: <strong>${cambios.join(', ')}</strong></span>
+      `;
+    } else {
+      alertDiv.classList.remove('alert-warning');
+      alertDiv.classList.add('alert-info');
+      alertDiv.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+          <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm.93-9.412-1 4.705c-.07.34.029.533.304.533.194 0 .487-.07.686-.246l-.088.416c-.287.346-.92.598-1.465.598-.703 0-1.002-.422-.808-1.319l.738-3.468c.064-.293.006-.399-.287-.47l-.451-.081.082-.381 2.29-.287zM8 5.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2z"/>
+        </svg>
+        <span>Modificá los campos necesarios y guardá los cambios</span>
+      `;
+    }
+  }
+  
+  // Escuchar cambios en todos los campos
+  formEditar.addEventListener('change', verificarCambios);
+  formEditar.addEventListener('input', verificarCambios);
+</script>
+{% endblock %}

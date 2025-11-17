@@ -89,7 +89,7 @@
       <form method="POST" action="{{ url_for('reservas_unirse') }}" class="d-inline-block" style="max-width: 320px;">
         <input type="hidden" name="id_reserva" value="{{ r.id_reserva }}">
 
-        <!-- 🔑 AQUÍ SE PIDE LA CONTRASEÑA PARA UNIRSE -->
+        <!-- AQUÍ SE PIDE LA CONTRASEÑA PARA UNIRSE -->
         <div class="mb-3 text-start">
           <label class="form-label" for="join-pass">Contraseña de la reserva</label>
           <input id="join-pass" name="clave_reserva" type="password" class="form-control" required>
@@ -103,6 +103,21 @@
       </form>
     {% endif %}
   </div>
+  
+  {% if session.usuario.es_admin %}
+  <div class="text-center mt-3 d-flex justify-content-center gap-3">
+
+      <a href="{{ url_for('reservas_editar', id=r.id_reserva) }}"
+         class="btn btn-warning px-4">Modificar reserva</a>
+
+      <form action="{{ url_for('reservas_eliminar', id=r.id_reserva) }}"
+            method="POST"
+            onsubmit="return confirm('¿Seguro que deseas eliminar esta reserva?');">
+        <button class="btn btn-danger px-4">Eliminar</button>
+      </form>
+
+  </div>
+{% endif %}
 
 
 </div>

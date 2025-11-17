@@ -75,6 +75,41 @@
         .login-box button:hover {
             background-color: #fdfac5;
         }
+
+        .rol-selection {
+            margin: 20px 0;
+        }
+
+        .rol-option {
+            background-color: #f0f0f0;
+            border: 2px solid #d2ddfd;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .rol-option:hover {
+            background-color: #d2ddfd;
+            transform: scale(1.02);
+        }
+
+        .rol-option input[type="radio"] {
+            margin-right: 10px;
+        }
+
+        .rol-option label {
+            cursor: pointer;
+            display: block;
+            font-weight: bold;
+        }
+
+        .rol-option p {
+            margin: 5px 0 0 25px;
+            font-size: 14px;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -84,22 +119,49 @@
         <div class="titulo">Universidad Católica del Uruguay</div>
 
         <div class="login-box">
-            <h2>Iniciar sesión</h2>
+            {% if mostrar_seleccion_admin %}
+                <!-- Pantalla de selección de rol para administradores -->
+                <h2>Seleccione cómo desea ingresar</h2>
+                
+                <form method="POST" action="/login">
+                    <input type="hidden" name="correo" value="{{ correo }}">
+                    
+                    <div class="rol-selection">
+                        <div class="rol-option">
+                            <input type="radio" id="rol_usuario" name="rol_admin" value="usuario" required>
+                            <label for="rol_usuario">Ingresar como Usuario</label>
+                            <p>Acceso normal al sistema</p>
+                        </div>
+                        
+                        <div class="rol-option">
+                            <input type="radio" id="rol_admin" name="rol_admin" value="admin" required>
+                            <label for="rol_admin">Ingresar como Administrador</label>
+                            <p>Acceso completo con privilegios administrativos</p>
+                        </div>
+                    </div>
+                    
+                    <button type="submit">Continuar</button>
+                </form>
+                
+            {% else %}
+                <!-- Pantalla normal de login -->
+                <h2>Iniciar sesión</h2>
 
-            {% if error %}
-            <div style="color: red; margin-bottom: 15px;">
-                {{ error }}
-            </div>
+                {% if error %}
+                <div style="color: red; margin-bottom: 15px;">
+                    {{ error }}
+                </div>
+                {% endif %}
+
+                <form method="POST" action="/login">
+                    <input type="text" name="correo" placeholder="Correo electrónico" required value="{{ request.form.correo }}">
+                    <input type="password" name="contraseña" placeholder="Contraseña" required>
+                    <button type="submit">Entrar</button>
+                </form>
+                <p style="text-align: center;">
+                    <a href="{{ url_for('recuperar_contraseña') }}">¿Olvidaste tu contraseña?</a>
+                </p>
             {% endif %}
-
-            <form method="POST" action="/login">
-                <input type="text" name="correo" placeholder="Correo electrónico" required value="{{ request.form.correo }}">
-                <input type="password" name="contraseña" placeholder="Contraseña" required>
-                <button type="submit">Entrar</button>
-            </form>
-            <p style="text-align: center;">
-                <a href="{{ url_for('recuperar_contraseña') }}">¿Olvidaste tu contraseña?</a>
-            </p>
         </div>
     </div>
 

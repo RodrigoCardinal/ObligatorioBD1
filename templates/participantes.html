@@ -3,28 +3,35 @@
 
 {% block hero_title %}
   <h1 class="hero-title mb-1">Gestión de Participantes</h1>
-  <p class="hero-sub mb-0">Administra usuarios y permisos del sistema</p>
+  <p class="hero-sub mb-0">Administra usuarios, invitados y permisos del sistema</p>
 {% endblock %}
 
 {% block content %}
 
-<!-- ESTILOS PARA EL ROL -->
 <style>
 .badge-admin,
-.badge-user {
-    color: black !important;      /* texto negro */
-    background-color: #eaeaea;    /* fondo suave */
+.badge-user,
+.badge-invitado {
+    color: white !important;
     font-weight: 600;
-    padding: 4px 8px;
+    padding: 4px 12px;
     border-radius: 6px;
+}
+.badge-admin {
+    background-color: #dc3545;
+}
+.badge-user {
+    background-color: #0d6efd;
+}
+.badge-invitado {
+    background-color: #6c757d;
 }
 </style>
 
 <div class="container mt-4">
-    <div class="d-flex justify-content-between">
-        <h2>Listado de Participantes</h2>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Listado de Participantes e Invitados</h2>
 
-        <!-- BOTÓN AGREGAR -->
         <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalAgregar">
             + Agregar participante
         </button>
@@ -38,6 +45,7 @@
                 <th>Apellido</th>
                 <th>Correo</th>
                 <th>Rol</th>
+                <th>Info adicional</th>
                 <th>Acciones</th>
             </tr>
         </thead>
@@ -51,31 +59,50 @@
                 <td>{{ p.email }}</td>
 
                 <td>
-                    <span class="badge {% if p.es_administrador %}badge-admin{% else %}badge-user{% endif %}">
-                        {{ 'Administrador' if p.es_administrador else 'Usuario' }}
-                    </span>
+                    {% if p.tipo == 'invitado' %}
+                        <span class="badge badge-invitado">Invitado</span>
+                    {% elif p.es_administrador == 1 %}
+                        <span class="badge badge-admin">Administrador</span>
+                    {% else %}
+                        <span class="badge badge-user">Usuario</span>
+                    {% endif %}
+                </td>
+
+                <td>
+                    {% if p.tipo == 'invitado' %}
+                        <small>
+                            <strong>Responsable:</strong> {{ p.nombre_responsable }}<br>
+                            <strong>Ingreso:</strong> {{ p.fecha_ingreso }}
+                        </small>
+                    {% else %}
+                        -
+                    {% endif %}
                 </td>
 
                 <td class="d-flex gap-2">
-
-                    <!-- EDITAR -->
                     <button class="btn btn-sm btn-outline-primary btn-edit"
                             data-ci="{{ p.ci }}"
                             data-nombre="{{ p.nombre }}"
                             data-apellido="{{ p.apellido }}"
                             data-correo="{{ p.email }}"
-                            data-rol="{{ 'admin' if p.es_administrador else 'user' }}">
+                            data-tipo="{{ p.tipo }}"
+                            {% if p.tipo == 'invitado' %}
+                            data-rol="invitado"
+                            data-responsable="{{ p.responsable_ci }}"
+                            data-fecha="{{ p.fecha_ingreso }}"
+                            {% else %}
+                            data-rol="{{ 'admin' if p.es_administrador == 1 else 'user' }}"
+                            {% endif %}>
                         Editar
                     </button>
 
-                    <!-- ELIMINAR -->
                     <button class="btn btn-sm btn-outline-danger btn-delete"
                             data-ci="{{ p.ci }}"
                             data-nombre="{{ p.nombre }}"
-                            data-apellido="{{ p.apellido }}">
+                            data-apellido="{{ p.apellido }}"
+                            data-tipo="{{ p.tipo }}">
                         Eliminar
                     </button>
-
                 </td>
             </tr>
             {% endfor %}
@@ -83,20 +110,26 @@
     </table>
 </div>
 
-<!-- MODAL AGREGAR -->
+<!-- ========================== -->
+<!-- MODAL AGREGAR PARTICIPANTE -->
+<!-- ========================== -->
+
 <div class="modal fade" id="modalAgregar" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <form action="/participantes/agregar" method="POST">
             <div class="modal-content">
+
                 <div class="modal-header">
                     <h5>Añadir participante</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
                 <div class="modal-body">
+
+                    <!-- CAMPOS COMUNES -->
                     <div class="mb-3">
                         <label>CI</label>
-                        <input type="text" name="ci" class="form-control" required>
+                        <input type="number" name="ci" class="form-control" required>
                     </div>
 
                     <div class="mb-3">
@@ -116,9 +149,10 @@
 
                     <div class="mb-3">
                         <label>Rol</label>
-                        <select name="es_administrador" class="form-select">
+                        <select name="rol" id="selectRolAgg" class="form-select" required>
                             <option value="user">Usuario</option>
                             <option value="admin">Administrador</option>
+                            <option value="invitado">Invitado</option>
                         </select>
                     </div>
 
@@ -126,50 +160,81 @@
                         <label>Contraseña</label>
                         <input type="password" name="contraseña" class="form-control" required>
                     </div>
+
+                    <!-- CAMPOS EXTRAS SOLO INVITADO -->
+                    <div id="extraInvitado" style="display:none;">
+                        <hr>
+                        <h6>Datos del invitado</h6>
+
+                        <div class="mb-3">
+                            <label>Responsable</label>
+                            <select name="responsable_ci" class="form-select">
+                                <option value="">Seleccione un responsable</option>
+                                {% for r in responsables %}
+                                <option value="{{ r.ci }}">{{ r.nombre_completo }} (CI: {{ r.ci }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label>Fecha ingreso</label>
+                            <input type="date" name="fecha_ingreso" class="form-control">
+                        </div>
+                    </div>
+
                 </div>
 
                 <div class="modal-footer">
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button class="btn btn-success" type="submit">Agregar</button>
                 </div>
+
             </div>
         </form>
     </div>
 </div>
 
-<!-- MODAL EDITAR -->
+
+<!-- ============= -->
+<!-- MODAL EDITAR  -->
+<!-- ============= -->
+
 <div class="modal fade" id="modalEditar" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <form id="formEditar" method="POST">
             <div class="modal-content">
+
                 <div class="modal-header">
-                    <h5 class="modal-title">Modificar participante</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <h5>Modificar participante</h5>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
                 <div class="modal-body">
+
                     <input type="hidden" id="edit-ci" name="ci">
+                    <input type="hidden" id="edit-tipo-actual" name="tipo_actual">
 
                     <div class="mb-3">
                         <label>Nombre</label>
-                        <input type="text" id="edit-nombre" name="nombre" class="form-control">
+                        <input type="text" id="edit-nombre" name="nombre" class="form-control" required>
                     </div>
 
                     <div class="mb-3">
                         <label>Apellido</label>
-                        <input type="text" id="edit-apellido" name="apellido" class="form-control">
+                        <input type="text" id="edit-apellido" name="apellido" class="form-control" required>
                     </div>
 
                     <div class="mb-3">
                         <label>Correo</label>
-                        <input type="email" id="edit-correo" name="correo" class="form-control">
+                        <input type="email" id="edit-correo" name="correo" class="form-control" required>
                     </div>
 
                     <div class="mb-3">
                         <label>Rol</label>
-                        <select id="edit-rol" name="es_administrador" class="form-select">
+                        <select id="edit-rol" name="rol" class="form-select" required>
                             <option value="user">Usuario</option>
                             <option value="admin">Administrador</option>
+                            <option value="invitado">Invitado</option>
                         </select>
                     </div>
 
@@ -177,25 +242,54 @@
                         <label>Nueva contraseña (opcional)</label>
                         <input type="password" id="edit-pass" name="contraseña" class="form-control">
                     </div>
+
+                    <!-- CAMPOS EXTRAS INVITADO EN EDICIÓN -->
+                    <div id="extraInvitadoEdit" style="display:none;">
+                        <hr>
+                        <h6>Datos del invitado</h6>
+
+                        <div class="mb-3">
+                            <label>Responsable</label>
+                            <select id="edit-responsable" name="responsable_ci" class="form-select">
+                                <option value="">Seleccione un responsable</option>
+                                {% for r in responsables %}
+                                <option value="{{ r.ci }}">{{ r.nombre_completo }} (CI: {{ r.ci }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label>Fecha ingreso</label>
+                            <input type="date" id="edit-fecha" name="fecha_ingreso" class="form-control">
+                        </div>
+                    </div>
+
                 </div>
 
                 <div class="modal-footer">
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button class="btn btn-primary" type="submit">Guardar cambios</button>
                 </div>
+
             </div>
         </form>
     </div>
 </div>
 
+
+<!-- =============== -->
 <!-- MODAL ELIMINAR -->
+<!-- =============== -->
+
 <div class="modal fade" id="modalEliminar" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <form id="formEliminar" method="POST">
+            <input type="hidden" id="delete-tipo" name="tipo">
             <div class="modal-content">
+
                 <div class="modal-header">
                     <h5>Confirmar eliminación</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <button class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
 
                 <div class="modal-body">
@@ -206,36 +300,107 @@
                     <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                     <button class="btn btn-danger" type="submit">Eliminar</button>
                 </div>
+
             </div>
         </form>
     </div>
 </div>
 
-<!-- JS -->
+
+<!-- ================= -->
+<!--   JAVASCRIPT     -->
+<!-- ================= -->
+
 <script>
+// --- Mostrar campos extra si elige INVITADO (AGREGAR) ---
+document.getElementById("selectRolAgg").addEventListener("change", e => {
+    const extraDiv = document.getElementById("extraInvitado");
+    const responsableSelect = extraDiv.querySelector('select[name="responsable_ci"]');
+    const fechaInput = extraDiv.querySelector('input[name="fecha_ingreso"]');
+    
+    if (e.target.value === "invitado") {
+        extraDiv.style.display = "block";
+        responsableSelect.required = true;
+        fechaInput.required = true;
+    } else {
+        extraDiv.style.display = "none";
+        responsableSelect.required = false;
+        fechaInput.required = false;
+    }
+});
+
+// --- EDITAR ---
 document.querySelectorAll('.btn-edit').forEach(btn => {
     btn.addEventListener('click', () => {
-        document.getElementById('edit-ci').value = btn.dataset.ci;
-        document.getElementById('edit-nombre').value = btn.dataset.nombre;
-        document.getElementById('edit-apellido').value = btn.dataset.apellido;
-        document.getElementById('edit-correo').value = btn.dataset.correo;
-        document.getElementById('edit-rol').value = btn.dataset.rol;
-
-        document.getElementById('formEditar').action = `/participantes/modificar/${btn.dataset.ci}`;
-
+        const ci = btn.dataset.ci;
+        const nombre = btn.dataset.nombre;
+        const apellido = btn.dataset.apellido;
+        const correo = btn.dataset.correo;
+        const rol = btn.dataset.rol;
+        const tipo = btn.dataset.tipo;
+        
+        document.getElementById('edit-ci').value = ci;
+        document.getElementById('edit-nombre').value = nombre;
+        document.getElementById('edit-apellido').value = apellido;
+        document.getElementById('edit-correo').value = correo;
+        document.getElementById('edit-rol').value = rol;
+        document.getElementById('edit-tipo-actual').value = tipo;
+        
+        const extraDiv = document.getElementById("extraInvitadoEdit");
+        const responsableSelect = extraDiv.querySelector('select[name="responsable_ci"]');
+        const fechaInput = extraDiv.querySelector('input[name="fecha_ingreso"]');
+        
+        // Mostrar campos extra si es invitado
+        if (tipo === 'invitado') {
+            extraDiv.style.display = "block";
+            document.getElementById('edit-responsable').value = btn.dataset.responsable || '';
+            document.getElementById('edit-fecha').value = btn.dataset.fecha || '';
+            responsableSelect.required = true;
+            fechaInput.required = true;
+            
+            // Deshabilitar cambio de rol si es invitado
+            document.getElementById('edit-rol').disabled = false;
+        } else {
+            extraDiv.style.display = "none";
+            responsableSelect.required = false;
+            fechaInput.required = false;
+            
+            // Deshabilitar opción invitado para participantes regulares
+            document.getElementById('edit-rol').disabled = false;
+        }
+        
+        // Listener para mostrar/ocultar campos al cambiar rol
+        document.getElementById('edit-rol').onchange = function(e) {
+            if (e.target.value === 'invitado') {
+                extraDiv.style.display = "block";
+                responsableSelect.required = true;
+                fechaInput.required = true;
+            } else {
+                extraDiv.style.display = "none";
+                responsableSelect.required = false;
+                fechaInput.required = false;
+            }
+        };
+        
+        document.getElementById('formEditar').action = `/participantes/modificar/${ci}`;
         new bootstrap.Modal(document.getElementById('modalEditar')).show();
     });
 });
 
+// --- ELIMINAR ---
 document.querySelectorAll('.btn-delete').forEach(btn => {
     btn.addEventListener('click', () => {
         const ci = btn.dataset.ci;
         const nombre = btn.dataset.nombre;
         const apellido = btn.dataset.apellido;
-
+        const tipo = btn.dataset.tipo;
+        
+        const tipoTexto = tipo === 'invitado' ? 'invitado' : 'participante';
+        
         document.getElementById("textoEliminar").textContent =
-            `¿Seguro que deseas eliminar a ${nombre} ${apellido}?`;
-
+            `¿Seguro que deseas eliminar al ${tipoTexto} ${nombre} ${apellido}?`;
+        
+        document.getElementById('delete-tipo').value = tipo;
         document.getElementById('formEliminar').action = `/participantes/eliminar/${ci}`;
 
         new bootstrap.Modal(document.getElementById('modalEliminar')).show();

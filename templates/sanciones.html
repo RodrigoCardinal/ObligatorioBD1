@@ -3,27 +3,76 @@
 
 {% block hero_title %}
   <h1 class="hero-title mb-1">Sanciones</h1>
-  <p class="hero-sub mb-0">Listado de sanciones activas y expiradas</p>
+  <p class="hero-sub mb-0">
+    {% if es_admin %}
+      Gestión de sanciones de todos los participantes
+    {% else %}
+      Consultá tus sanciones activas e históricas
+    {% endif %}
+  </p>
 {% endblock %}
 
 {% block content %}
-<div class="table-responsive">
-  <table class="table table-sm align-middle">
-    <thead><tr><th>CI</th><th>Nombre</th><th>Motivo</th><th>Desde</th><th>Hasta</th><th>Estado</th></tr></thead>
-    <tbody>
-      {% for s in sanciones %}
+{% if not sanciones %}
+  <div class="alert alert-info">
+    {% if es_admin %}
+      No hay sanciones registradas en el sistema.
+    {% else %}
+      No tenés sanciones registradas. ¡Seguí así!
+    {% endif %}
+  </div>
+{% else %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle">
+      <thead>
         <tr>
-          <td>{{ s.ci }}</td>
-          <td>{{ s.nombre }}</td>
-          <td>{{ s.motivo }}</td>
-          <td>{{ s.desde }}</td>
-          <td>{{ s.hasta }}</td>
-          <td><span class="badge {{ 'bg-danger' if s.activa else 'bg-secondary' }}">{{ 'Activa' if s.activa else 'Expirada' }}</span></td>
+          {% if es_admin %}
+            <th>CI</th>
+          {% endif %}
+          <th>Nombre</th>
+          <th>Motivo</th>
+          <th>Desde</th>
+          <th>Hasta</th>
+          <th>Estado</th>
+          {% if es_admin %}
+            <th>Acciones</th>
+          {% endif %}
         </tr>
-      {% else %}
-        <tr><td colspan="6" class="text-muted">Sin sanciones.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</div>
+      </thead>
+      <tbody>
+        {% for s in sanciones %}
+          <tr>
+            {% if es_admin %}
+              <td>{{ s.ci }}</td>
+            {% endif %}
+            <td>{{ s.nombre }}</td>
+            <td>{{ s.motivo }}</td>
+            <td>{{ s.desde }}</td>
+            <td>{{ s.hasta }}</td>
+            <td>
+              {% if s.activa %}
+                <span class="badge bg-danger">Activa</span>
+              {% else %}
+                <span class="badge bg-secondary">Finalizada</span>
+              {% endif %}
+            </td>
+            {% if es_admin %}
+              <td class="text-end">
+                <a href="{{ url_for('sanciones_editar', ci=s.ci) }}" 
+                   class="btn btn-sm btn-warning">Modificar</a>
+                
+                <form action="{{ url_for('sanciones_eliminar', ci=s.ci) }}" 
+                      method="POST" 
+                      class="d-inline"
+                      onsubmit="return confirm('¿Seguro que deseas eliminar esta sanción?');">
+                  <button class="btn btn-sm btn-danger">Eliminar</button>
+                </form>
+              </td>
+            {% endif %}
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endif %}
 {% endblock %}

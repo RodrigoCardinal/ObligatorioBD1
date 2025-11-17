@@ -92,9 +92,9 @@ CREATE TABLE invitados(
     nombre_invitado VARCHAR(20),
     apellido_invitado VARCHAR(20),
     email VARCHAR(50),
-    id_reserva int,
-    id_turno int,
-    FOREIGN KEY (responsable_ci) REFERENCES participante(ci),
-    FOREIGN KEY (id_reserva) REFERENCES reserva(id_reserva),
-    FOREIGN KEY (id_turno) REFERENCES turno(id_turno)
+    contraseña_temporal varchar(255),
+    fecha_ingreso DATE,
+    FOREIGN KEY (responsable_ci) REFERENCES participante(ci)
 );
+
+

@@ -1,114 +1,507 @@
 {% extends "base.html" %}
-{% block title %}Reportes | Sistema de Salas{% endblock %}
-
-{% block hero_title %}
-  <h1 class="hero-title mb-1">Reportes</h1>
-  <p class="hero-sub mb-0">Indicadores y listados por período</p>
-{% endblock %}
+{% block title %}Reportes{% endblock %}
 
 {% block content %}
-<form class="row g-3 mb-4" method="get" action="{{ url_for('reportes_index') }}" aria-label="Filtros de reportes">
-  <div class="col-md-4">
-    <label class="form-label" for="f-desde">Desde</label>
-    <input id="f-desde" type="date" name="desde" class="form-control" value="{{ request.args.get('desde','') }}">
-  </div>
-  <div class="col-md-4">
-    <label class="form-label" for="f-hasta">Hasta</label>
-    <input id="f-hasta" type="date" name="hasta" class="form-control" value="{{ request.args.get('hasta','') }}">
-  </div>
-  <div class="col-md-4">
-    <label class="form-label" for="f-edif">Edificio</label>
-    <select id="f-edif" name="edificio" class="form-select">
-      <option value="">Todos</option>
-      {% for e in edificios %}
-        <option value="{{ e }}" {{ 'selected' if request.args.get('edificio')==e else '' }}>{{ e }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div class="col-12 d-flex gap-2">
-    <button class="btn btn-primary">Aplicar</button>
-    <a class="btn btn-outline-secondary" href="{{ url_for('reportes_index') }}">Limpiar</a>
-  </div>
-</form>
+<div class="container mt-4">
 
-<div class="row g-3 mb-4">
-  <div class="col-md-3">
-    <div class="card"><div class="card-body text-center">
-      <div class="text-muted">Reservas</div>
-      <div class="fs-3 fw-bold">{{ kpis.reservas }}</div>
-    </div></div>
-  </div>
-  <div class="col-md-3">
-    <div class="card"><div class="card-body text-center">
-      <div class="text-muted">% Ocupación</div>
-      <div class="fs-3 fw-bold">{{ kpis.ocupacion }}%</div>
-    </div></div>
-  </div>
-  <div class="col-md-3">
-    <div class="card"><div class="card-body text-center">
-      <div class="text-muted">Asistencias</div>
-      <div class="fs-3 fw-bold">{{ kpis.asistencias }}</div>
-    </div></div>
-  </div>
-  <div class="col-md-3">
-    <div class="card"><div class="card-body text-center">
-      <div class="text-muted">Sanciones</div>
-      <div class="fs-3 fw-bold">{{ kpis.sanciones }}</div>
-    </div></div>
-  </div>
-</div>
+    <h2 class="mb-4">Reportes del Sistema</h2>
 
-<div class="row g-4">
-  <div class="col-lg-6">
-    <div class="card">
-      <div class="card-body">
-        <h5 class="card-title">Salas más reservadas</h5>
-        <div class="table-responsive">
-          <table class="table table-sm">
-            <thead>
-              <tr><th>Sala</th><th>Edificio</th><th>Reservas</th></tr>
-            </thead>
-            <tbody>
-              {% for x in top_salas %}
-                <tr>
-                  <td>{{ x.sala }}</td>
-                  <td>{{ x.edificio }}</td>
-                  <td>{{ x.count }}</td>
-                </tr>
-              {% else %}
-                <tr><td colspan="3" class="text-muted">Sin datos.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
+    <!-- Selector de tipo de reporte -->
+    <form method="get" action="/reportes" class="mb-4">
+        <label for="tipo_reporte" class="form-label fw-bold">Selecciona el reporte:</label>
+        <select name="tipo_reporte" id="tipo_reporte" class="form-select" onchange="this.form.submit()">
+            <option value="uso_salas" {% if tipo=='uso_salas' %}selected{% endif %}>1. Salas más reservadas</option>
+            <option value="turnos_mas" {% if tipo=='turnos_mas' %}selected{% endif %}>2. Turnos más demandados</option>
+            <option value="prom_participantes" {% if tipo=='prom_participantes' %}selected{% endif %}>3. Promedio de participantes por sala</option>
+            <option value="reservas_carrera" {% if tipo=='reservas_carrera' %}selected{% endif %}>4. Reservas por carrera y facultad</option>
+            <option value="ocupacion_salas" {% if tipo=='ocupacion_salas' %}selected{% endif %}>5. Porcentaje de ocupación de salas por edificio</option>
+            <option value="reservas_asistencias" {% if tipo=='reservas_asistencias' %}selected{% endif %}>6. Reservas y asistencias por rol</option>
+            <option value="sanciones_rol" {% if tipo=='sanciones_rol' %}selected{% endif %}>7. Sanciones por rol</option>
+            <option value="reservas_usadas" {% if tipo=='reservas_usadas' %}selected{% endif %}>8. Reservas utilizadas vs no utilizadas</option>
+            <option value="reservas_turno" {% if tipo=='reservas_turno' %}selected{% endif %}>9. Reservas por turno</option>
+            <option value="reservas_semestre" {% if tipo=='reservas_semestre' %}selected{% endif %}>10. Reservas por semestre</option>
+            <option value="sanciones" {% if tipo=='sanciones' %}selected{% endif %}>11. Participantes con sanciones</option>
+        </select>
+    </form>
+
+    <hr>
+
+    <!-- ====================================================== -->
+    <!-- ============== REPORTES DINÁMICOS ===================== -->
+    <!-- ====================================================== -->
+
+    <!-- REPORTE 1: SALAS MÁS RESERVADAS -->
+    {% if tipo == 'uso_salas' %}
+    <h4>1. Salas más reservadas</h4>
+
+    <!-- Filtro por edificio -->
+    <form method="get" class="mb-3">
+        <input type="hidden" name="tipo_reporte" value="uso_salas">
+        <label class="form-label">Filtrar por edificio:</label>
+        <select name="edificio" class="form-select w-25" onchange="this.form.submit()">
+            <option value="">Todos los edificios</option>
+            {% for e in edificios %}
+                <option value="{{ e.edificio }}" {% if request.args.get('edificio') == e.edificio %}selected{% endif %}>{{ e.edificio }}</option>
+            {% endfor %}
+        </select>
+    </form>
+
+    {% if salas %}
+    <table class="table table-bordered">
+        <thead class="table-primary">
+            <tr>
+                <th>Sala</th>
+                <th>Edificio</th>
+                <th>Cantidad de Reservas</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in salas %}
+            <tr>
+                <td>{{ row.nombre_sala }}</td>
+                <td>{{ row.edificio }}</td>
+                <td><strong>{{ row.total }}</strong></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info">No hay datos disponibles para este reporte.</div>
+    {% endif %}
+    {% endif %}
+
+
+
+    <!-- REPORTE 2: TURNOS MÁS DEMANDADOS -->
+    {% if tipo == 'turnos_mas' %}
+    <h4>2. Turnos más demandados</h4>
+
+    <!-- Filtro por rango horario -->
+    <form method="get" class="mb-3">
+        <input type="hidden" name="tipo_reporte" value="turnos_mas">
+        <label class="form-label">Filtrar por franja horaria:</label>
+        <select name="rango" class="form-select w-25" onchange="this.form.submit()">
+            <option value="">Todas las franjas</option>
+            <option value="mañana" {% if request.args.get('rango')=='mañana' %}selected{% endif %}>Mañana (06:00 - 12:00)</option>
+            <option value="tarde" {% if request.args.get('rango')=='tarde' %}selected{% endif %}>Tarde (12:00 - 18:00)</option>
+            <option value="noche" {% if request.args.get('rango')=='noche' %}selected{% endif %}>Noche (18:00 - 06:00)</option>
+        </select>
+    </form>
+
+    {% if turnos %}
+    <table class="table table-striped">
+        <thead class="table-primary">
+            <tr>
+                <th>Hora Inicio</th>
+                <th>Hora Fin</th>
+                <th>Cantidad de Reservas</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in turnos %}
+            <tr>
+                <td>{{ row.hora_inicio }}</td>
+                <td>{{ row.hora_fin }}</td>
+                <td><strong>{{ row.total }}</strong></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info">No hay datos disponibles para este reporte.</div>
+    {% endif %}
+    {% endif %}
+
+
+
+    <!-- REPORTE 3: PROMEDIO DE PARTICIPANTES POR SALA -->
+    {% if tipo == 'prom_participantes' %}
+    <h4>3. Promedio de participantes por sala</h4>
+
+    <!-- Filtro de mínimo y máximo -->
+    <form method="get" class="mb-3">
+        <input type="hidden" name="tipo_reporte" value="prom_participantes">
+        <div class="row g-2 w-50">
+            <div class="col">
+                <label>Promedio mínimo:</label>
+                <input type="number" step="0.01" name="min" class="form-control" value="{{ request.args.get('min','') }}" placeholder="Ej: 1">
+            </div>
+            <div class="col">
+                <label>Promedio máximo:</label>
+                <input type="number" step="0.01" name="max" class="form-control" value="{{ request.args.get('max','') }}" placeholder="Ej: 10">
+            </div>
+            <div class="col">
+                <label>&nbsp;</label>
+                <button class="btn btn-primary w-100">Aplicar filtro</button>
+            </div>
         </div>
-      </div>
-    </div>
-  </div>
+    </form>
 
-  <div class="col-lg-6">
-    <div class="card">
-      <div class="card-body">
-        <h5 class="card-title">Turnos más demandados</h5>
-        <div class="table-responsive">
-          <table class="table table-sm">
-            <thead>
-              <tr><th>Turno</th><th>Reservas</th></tr>
-            </thead>
-            <tbody>
-              {% for x in top_turnos %}
-                <tr>
-                  <td>{{ x.turno }}</td>
-                  <td>{{ x.count }}</td>
-                </tr>
-              {% else %}
-                <tr><td colspan="2" class="text-muted">Sin datos.</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
+    {% if prom %}
+    <table class="table table-hover">
+        <thead class="table-primary">
+            <tr>
+                <th>Sala</th>
+                <th>Promedio de Participantes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in prom %}
+            <tr>
+                <td>{{ row.nombre_sala }}</td>
+                <td>{{ "%.2f"|format(row.promedio|float) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info">No hay datos disponibles para este reporte.</div>
+    {% endif %}
+    {% endif %}
+
+
+
+    <!-- REPORTE 4: RESERVAS POR CARRERA Y FACULTAD -->
+    {% if tipo == 'reservas_carrera' %}
+    <h4>4. Reservas por carrera y facultad</h4>
+
+    <!-- Filtro por carrera -->
+    <form method="get" class="mb-3">
+        <input type="hidden" name="tipo_reporte" value="reservas_carrera">
+        <label>Filtrar por carrera:</label>
+        <select name="carrera" class="form-select w-25" onchange="this.form.submit()">
+            <option value="">Todas las carreras</option>
+            {% for c in carreras %}
+                <option value="{{ c.carrera }}" {% if request.args.get('carrera')==c.carrera %}selected{% endif %}>{{ c.carrera }}</option>
+            {% endfor %}
+        </select>
+    </form>
+
+    {% if reservas %}
+    <table class="table table-bordered">
+        <thead class="table-primary">
+            <tr>
+                <th>Facultad</th>
+                <th>Carrera</th>
+                <th>Cantidad de Reservas</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in reservas %}
+            <tr>
+                <td>{{ row.facultad }}</td>
+                <td>{{ row.carrera }}</td>
+                <td>{{ row.total }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info">No hay datos disponibles para este reporte.</div>
+    {% endif %}
+    {% endif %}
+
+
+
+    <!-- REPORTE 5: OCUPACIÓN DE SALAS POR EDIFICIO -->
+    {% if tipo == 'ocupacion_salas' %}
+    <h4>5. Porcentaje de ocupación de salas por edificio</h4>
+    <p class="text-muted">Porcentaje calculado en base a la capacidad total del edificio</p>
+
+    {% if ocupacion %}
+    <table class="table table-striped">
+        <thead class="table-primary">
+            <tr>
+                <th>Edificio</th>
+                <th>Porcentaje de Ocupación</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in ocupacion %}
+            <tr>
+                <td>{{ row.nombre_sala }}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        <div class="progress flex-grow-1 me-2" style="height: 25px;">
+                            <div class="progress-bar bg-success" role="progressbar"
+                                 style="width: {{ row.ocupacion|default(0)|float }}%"
+                                 aria-valuenow="{{ row.ocupacion|default(0)|float }}"
+                                 aria-valuemin="0" aria-valuemax="100">
+                                {{ "%.2f"|format(row.ocupacion|default(0)|float) }}%
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info">No hay datos disponibles para este reporte.</div>
+    {% endif %}
+    {% endif %}
+
+
+
+    <!-- REPORTE 6: RESERVAS Y ASISTENCIAS POR ROL -->
+    {% if tipo == 'reservas_asistencias' %}
+    <h4>6. Cantidad de reservas y asistencias por rol</h4>
+    <p class="text-muted">Comparación entre reservas realizadas y asistencias confirmadas según el rol</p>
+
+    {% if reservas_asistencias %}
+    <table class="table table-bordered">
+        <thead class="table-primary">
+            <tr>
+                <th>Rol</th>
+                <th>Cantidad de Reservas</th>
+                <th>Cantidad de Asistencias</th>
+                <th>% Asistencia</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in reservas_asistencias %}
+            <tr>
+                <td><strong>{{ row.rol }}</strong></td>
+                <td>{{ row.CantReservas }}</td>
+                <td>{{ row.CantAsistencias }}</td>
+                <td>
+                    {% if row.CantReservas > 0 %}
+                        {{ "%.2f"|format((row.CantAsistencias / row.CantReservas * 100)|float) }}%
+                    {% else %}
+                        0%
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info">No hay datos disponibles para este reporte.</div>
+    {% endif %}
+    {% endif %}
+
+
+
+    <!-- REPORTE 7: SANCIONES POR ROL -->
+    {% if tipo == 'sanciones_rol' %}
+    <h4>7. Cantidad de sanciones por rol</h4>
+    <p class="text-muted">Participantes únicos sancionados según su rol en el sistema</p>
+
+    {% if sanciones_rol %}
+    <table class="table table-striped">
+        <thead class="table-danger">
+            <tr>
+                <th>Rol</th>
+                <th>Cantidad de Participantes Sancionados</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in sanciones_rol %}
+            <tr>
+                <td><strong>{{ row.rol }}</strong></td>
+                <td>{{ row.CantSanciones }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot class="table-secondary">
+            <tr>
+                <th>TOTAL</th>
+                <th>{{ sanciones_rol|sum(attribute='CantSanciones') }}</th>
+            </tr>
+        </tfoot>
+    </table>
+    {% else %}
+    <div class="alert alert-success">No hay sanciones registradas por rol.</div>
+    {% endif %}
+    {% endif %}
+
+
+
+    <!-- REPORTE 8: RESERVAS UTILIZADAS VS NO UTILIZADAS -->
+    {% if tipo == 'reservas_usadas' %}
+    <h4>8. Reservas utilizadas vs no utilizadas</h4>
+    <p class="text-muted">Basado en el estado de las reservas (activa/finalizada vs otras)</p>
+
+    {% if usadas %}
+    <table class="table table-bordered">
+        <thead class="table-primary">
+            <tr>
+                <th>Estado</th>
+                <th>Cantidad</th>
+                <th>Porcentaje</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in usadas %}
+            <tr>
+                <td>
+                    {% if row.estado == 'Utilizadas' %}
+                        <span class="badge bg-success fs-6">{{ row.estado }}</span>
+                    {% else %}
+                        <span class="badge bg-danger fs-6">{{ row.estado }}</span>
+                    {% endif %}
+                </td>
+                <td><strong>{{ row.total }}</strong></td>
+                <td>
+                    {% if row.porcentaje %}
+                        {{ "%.2f"|format(row.porcentaje|float) }}%
+                    {% else %}
+                        0%
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info">No hay datos disponibles para este reporte.</div>
+    {% endif %}
+    {% endif %}
+
+
+
+    <!-- REPORTE 9: RESERVAS POR TURNO -->
+    {% if tipo == 'reservas_turno' %}
+    <h4>9. Reservas por turno</h4>
+    <p class="text-muted">Listado completo de todos los turnos y su cantidad de reservas</p>
+
+    {% if reservas_turno %}
+    <table class="table table-hover">
+        <thead class="table-primary">
+            <tr>
+                <th>Hora Inicio</th>
+                <th>Hora Fin</th>
+                <th>Cantidad de Reservas</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in reservas_turno %}
+            <tr>
+                <td>{{ row.hora_inicio }}</td>
+                <td>{{ row.hora_fin }}</td>
+                <td>
+                    <span class="badge bg-info text-dark">{{ row.total }}</span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot class="table-secondary">
+            <tr>
+                <th colspan="2">TOTAL DE RESERVAS</th>
+                <th>{{ reservas_turno|sum(attribute='total') }}</th>
+            </tr>
+        </tfoot>
+    </table>
+    {% else %}
+    <div class="alert alert-info">No hay datos disponibles para este reporte.</div>
+    {% endif %}
+    {% endif %}
+
+
+
+    <!-- REPORTE 10: RESERVAS POR SEMESTRE -->
+    {% if tipo == 'reservas_semestre' %}
+    <h4>10. Reservas realizadas en un semestre específico</h4>
+
+    <!-- Filtro de fechas -->
+    <form method="get" class="mb-3">
+        <input type="hidden" name="tipo_reporte" value="reservas_semestre">
+        <div class="row g-2 w-50">
+            <div class="col">
+                <label>Fecha inicio:</label>
+                <input type="date" name="fecha_inicio" class="form-control" 
+                       value="{{ request.args.get('fecha_inicio','2025-08-12') }}">
+            </div>
+            <div class="col">
+                <label>Fecha fin:</label>
+                <input type="date" name="fecha_fin" class="form-control" 
+                       value="{{ request.args.get('fecha_fin','2025-12-05') }}">
+            </div>
+            <div class="col">
+                <label>&nbsp;</label>
+                <button class="btn btn-primary w-100">Filtrar período</button>
+            </div>
         </div>
-      </div>
-    </div>
-  </div>
-</div>
+    </form>
 
+    {% if reservas_semestre %}
+    <div class="alert alert-info">
+        <strong>Total de reservas en el período:</strong> {{ reservas_semestre|length }}
+    </div>
+    <table class="table table-striped table-sm">
+        <thead class="table-primary">
+            <tr>
+                <th>ID</th>
+                <th>Sala</th>
+                <th>Fecha</th>
+                <th>Horario</th>
+                <th>Estado</th>
+                <th>Participantes</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in reservas_semestre %}
+            <tr>
+                <td>{{ row.id_reserva }}</td>
+                <td>{{ row.nombre_sala }}</td>
+                <td>{{ row.fecha }}</td>
+                <td>{{ row.hora_inicio }} - {{ row.hora_fin }}</td>
+                <td>
+                    <span class="badge 
+                        {% if row.estado == 'activa' %}bg-success
+                        {% elif row.estado == 'finalizada' %}bg-secondary
+                        {% elif row.estado == 'cancelada' %}bg-danger
+                        {% else %}bg-warning{% endif %}">
+                        {{ row.estado }}
+                    </span>
+                </td>
+                <td>{{ row.participantes }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-warning">No hay reservas en el período seleccionado.</div>
+    {% endif %}
+    {% endif %}
+
+
+
+    <!-- REPORTE 11: PARTICIPANTES CON SANCIONES -->
+    {% if tipo == 'sanciones' %}
+    <h4>11. Participantes con sanciones</h4>
+    <p class="text-muted">Listado completo de participantes que tienen o han tenido sanciones</p>
+
+    {% if sanciones %}
+    <table class="table table-striped table-hover">
+        <thead class="table-danger">
+            <tr>
+                <th>CI</th>
+                <th>Nombre Completo</th>
+                <th>Cantidad de Sanciones</th>
+                <th>Inincio Sanción</th>
+                <th>Fin Sanción</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in sanciones %}
+            <tr>
+                <td>{{ row.ci }}</td>
+                <td>{{ row.nombre }}</td>
+                <td><span class="badge bg-danger">{{ row.cant_sanciones }}</span></td>
+                <td>{{ row.fecha_inicio }}</td>
+                <td>{{ row.fecha_fin }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="alert alert-warning mt-3">
+        <strong>Total de participantes con sanciones:</strong> {{ sanciones|length }}
+    </div>
+    {% else %}
+    <div class="alert alert-success">No hay participantes con sanciones registradas.</div>
+    {% endif %}
+    {% endif %}
+
+</div>
 {% endblock %}

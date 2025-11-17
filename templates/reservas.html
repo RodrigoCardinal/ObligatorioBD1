@@ -58,7 +58,17 @@
                  else 'bg-warning text-dark' }}">{{ r.estado|capitalize }}</span>
           </td>
           <td class="text-end">
-            <a href="{{ url_for('reserva_detalle', id=r.id_reserva) }}" class="btn btn-sm btn-outline-primary">Ver reserva</a>
+              <a href="{{ url_for('reserva_detalle', id=r.id_reserva) }}" class="btn btn-sm btn-outline-primary">Ver reserva</a>
+
+              {% if es_admin %}
+                <a href="{{ url_for('reservas_editar', id=r.id_reserva) }}" class="btn btn-sm btn-warning">Modificar</a>
+
+                <form action="{{ url_for('reservas_eliminar', id=r.id_reserva) }}"
+                      method="POST" class="d-inline"
+                      onsubmit="return confirm('¿Seguro que deseas eliminar esta reserva?');">
+                  <button class="btn btn-sm btn-danger">Eliminar</button>
+                </form>
+              {% endif %}
           </td>
         </tr>
       {% else %}

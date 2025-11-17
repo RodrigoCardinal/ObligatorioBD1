@@ -103,8 +103,8 @@ INSERT INTO ObligatorioBD1.sancion_participante (ci_participante, fecha_inicio, 
 
 
 -- Tabla: invitados
-INSERT INTO ObligatorioBD1.invitados(ci_invitado,responsable_ci,nombre_invitado,apellido_invitado,email,id_reserva, id_turno) VALUES
-(43459814,50128394,'Julian','Perez','julian.perez@gmail.com',1,1),
-(56784229,51293487,'Ana','Gonzalez','ana.gonzalez@gmail.com',7,4),
-(93245881,48927153,'Juliana','Mendez','juliana.mendez@gmail.com',4,1);
+INSERT INTO ObligatorioBD1.invitados(ci_invitado,responsable_ci,nombre_invitado,apellido_invitado,email, contraseña_temporal, fecha_ingreso) VALUES
+(43459814,50128394,'Julian','Perez','julian.perez@gmail.com','prueba','2025-11-16'),
+(56784229,51293487,'Ana','Gonzalez','ana.gonzalez@gmail.com','prueba','2025-11-18'),
+(93245881,48927153,'Juliana','Mendez','juliana.mendez@gmail.com','prueba','2025-11-19');
 
