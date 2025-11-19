@@ -57,7 +57,7 @@ CREATE TABLE turno (
 );
 
 CREATE TABLE reserva (
-    id_reserva INT PRIMARY KEY,
+    id_reserva INT PRIMARY KEY auto_increment,
     nombre_sala VARCHAR(50),
     edificio VARCHAR(50),
     fecha DATE,

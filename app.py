@@ -7,8 +7,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from flask_mysqldb import MySQL
 import MySQLdb.cursors
 from werkzeug.security import check_password_hash, generate_password_hash
-from conexiones import get_admin_connection, get_user_connection
-
+from hash_url import hash_url_md5
 
 # ---------------------------
 # App & DB
@@ -86,7 +85,6 @@ def _imagen_sala_url(nombre_sala: str):
         if s in base_slug or base_slug in s:
             return url_for('static', filename=os.path.join(SALAS_REL_DIR, real))
     return None
-
 
 # ============================================================
 # CONDICIONALES al crear o unirse a una reserva
@@ -351,10 +349,11 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
         clave_correcta = r["clave_reserva"]
 
         # --- Validar clave ---
-        if clave_correcta not in (None, "") and clave_ingresa != clave_correcta:
+        if not check_password_hash(clave_correcta, clave_ingresa):
             cur.close()
-            flash("Contraseña de la reserva incorrecta.", "danger")
+            flash("Tenés que ingresar la contraseña de la reserva.", "danger")
             return redirect(url_for("reserva_detalle", id=id_reserva))
+
 
         # --- Verificar capacidad ---
         cur.execute("""
@@ -417,6 +416,7 @@ def _require_login():
 # ---------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    
     if request.method == "POST":
         correo = request.form["correo"]
         contraseña = request.form.get("contraseña")
@@ -1135,15 +1135,29 @@ def reservas_crear():
         if reserva_validada is not True:
             # verificador devolvió un redirect/Response; devolverlo inmediatamente
             return reserva_validada
+        
+        #hasheamos la contraseña de la reserva
+        if not clave_reserva.startswith("scrypt:32768:8:1$"):
+            clave_hasheada = generate_password_hash(clave_reserva)
+            cur.execute(
+                "UPDATE ObligatorioBD1.login SET contraseña = %s WHERE correo = %s",
+                (clave_hasheada, session['usuario'].get('correo'))
+                )
+            print(f"Contraseña rehasheada para {session['usuario'].get('correo')}")
 
         # si llegamos acá, verificador devolvió True => crear reserva
-        cur.execute("SELECT COALESCE(MAX(id_reserva),0)+1 AS nxt FROM reserva")
-        nxt = cur.fetchone()["nxt"]
-
         cur.execute("""
-                    INSERT INTO reserva (id_reserva, nombre_sala, edificio, fecha, id_turno, estado, clave_reserva)
-                    VALUES (%s, %s, %s, %s, %s, 'activa', %s)
-                    """, (nxt, nombre_sala, edificio, fecha, id_turno, clave_reserva))
+                    INSERT INTO reserva (nombre_sala, edificio, fecha, id_turno, estado, clave_reserva)
+                    VALUES (%s, %s, %s, %s, 'activa', %s)
+                    """, (nombre_sala, edificio, fecha, id_turno, clave_hasheada))
+
+        cur.execute(""" 
+                    SELECT id_reserva 
+                    FROM reserva 
+                    WHERE nombre_sala = %s AND edificio = %s AND fecha = %s AND id_turno=%s AND clave_reserva = %s
+                    """, (nombre_sala, edificio,  fecha, id_turno, clave_hasheada))
+        id_reserva = cur.fetchone()["id_reserva"]
+
 
         # Auto-agregar usuario logueado si existe en participante
         ci = session["usuario"]["ci"]
@@ -1152,13 +1166,13 @@ def reservas_crear():
                 INSERT IGNORE INTO reserva_participante 
                     (ci_participante, id_reserva, fecha_solicitud_reserva, asistencia)
                 VALUES (%s, %s, %s, false)
-            """, (ci, nxt, date.today()))
+            """, (ci, id_reserva, date.today()))
 
         mysql.connection.commit()
         cur.close()
 
         flash("Reserva creada.", "success")
-        return redirect(url_for("reserva_detalle", id=nxt))
+        return redirect(url_for("reserva_detalle", id=id_reserva))
 
     # -- GET --
     edificio = request.args.get("edificio")
@@ -1229,11 +1243,7 @@ def reservas_unirse():
     if not id_reserva:
         flash("Reserva inválida.", "danger")
         return redirect(url_for("reservas_listado"))
-
-    if not clave_ingresa:
-        flash("Tenés que ingresar la contraseña de la reserva.", "danger")
-        return redirect(url_for("reserva_detalle", id=id_reserva))
-
+    
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
     # Obtener CI del usuario logueado
@@ -1817,11 +1827,10 @@ def reportes_index():
     elif tipo == 'reservas_usadas':
         cur.execute("""
             SELECT
-                IF(estado IN ('activa', 'finalizada'), 'Utilizadas', 'No utilizadas') AS estado,
-                COUNT(*) AS total,
+                IF(estado IN ('activa', 'finalizada'), 'Utilizadas', 'No utilizadas') AS estado_actuales,
                 COUNT(*) / (SELECT COUNT(*) FROM reserva) * 100 AS porcentaje
             FROM reserva
-            GROUP BY estado
+            GROUP BY estado_actuales
         """)
         usadas = cur.fetchall()
 

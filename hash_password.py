@@ -1,6 +1,7 @@
 from werkzeug.security import generate_password_hash
 import pymysql
 
+
 # Configura tu conexión
 conn = pymysql.connect(
     host="127.0.0.1",
@@ -18,7 +19,7 @@ for usuario in usuarios:
     contrasena_original = usuario["contraseña"]
 
     # Evita rehashear las que ya están hasheadas
-    if not contrasena_original.startswith("pbkdf2:sha256:"):
+    if not contrasena_original.startswith("scrypt:32768:8:1$"):
         nueva = generate_password_hash(contrasena_original)
         cur.execute(
             "UPDATE ObligatorioBD1.login SET contraseña = %s WHERE correo = %s",
@@ -30,7 +31,6 @@ conn.commit()
 conn.close()
 
 print("Todas las contraseñas fueron rehasheadas con werkzeug.security.")
-
 
 
 
