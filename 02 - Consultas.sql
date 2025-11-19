@@ -60,10 +60,10 @@ group by ppa.rol;
 
 #Porcentaje de reservas efectivamente utilizadas vs. canceladas/no asistidas
 SELECT
-    IF(estado IN ('activa', 'finalizada'), 'Utilizadas', 'No utilizadas') AS estado,
-    COUNT(*) / (SELECT COUNT(*) FROM reserva) * 100 AS total
+    IF(estado IN ('activa', 'finalizada'), 'Utilizadas', 'No utilizadas') AS estados_actuales,
+    COUNT(*) / (SELECT COUNT(*) FROM reserva) * 100 AS porcentaje
 FROM reserva
-GROUP BY estado;
+GROUP BY estados_actuales;
 
 #Reservas por turno
 select t.hora_inicio, t.hora_fin, count(r.id_reserva) as total

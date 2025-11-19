@@ -86,7 +86,7 @@ CREATE TABLE sancion_participante(
     FOREIGN KEY (ci_participante) REFERENCES participante(ci)
 );
 
-CREATE TABLE invitados(
+CREATE TABLE ObligatorioBD1.invitados(
     ci_invitado INT PRIMARY KEY,
     responsable_ci INT,
     nombre_invitado VARCHAR(20),
