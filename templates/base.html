@@ -13,30 +13,111 @@
 <body class="bg-light d-flex flex-column min-vh-100">
 
   <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg">
-    <div class="container">
-      <a class="navbar-brand fw-semibold" href="{{ url_for('inicio') }}">Sistema de Salas</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain" aria-label="Abrir menú">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div id="navMain" class="collapse navbar-collapse">
-        <ul class="navbar-nav ms-auto">
-          {% if session.get('usuario') %}
-            <li class="nav-item"><a class="nav-link{% if request.path.startswith('/salas') %} active{% endif %}" href="{{ url_for('salas_listado') }}">Salas</a></li>
-            <li class="nav-item"><a class="nav-link{% if request.path.startswith('/reservas') %} active{% endif %}" href="{{ url_for('reservas_listado') }}">Reservas</a></li>
-            <li class="nav-item"><a class="nav-link{% if request.path.startswith('/reportes') %} active{% endif %}" href="{{ url_for('reportes_index') }}">Reportes</a></li>
-            <li class="nav-item"><a class="nav-link{% if request.path.startswith('/asistencia') %} active{% endif %}" href="{{ url_for('asistencia_index') }}">Asistencia</a></li>
-            <li class="nav-item"><a class="nav-link{% if request.path.startswith('/sanciones') %} active{% endif %}" href="{{ url_for('sanciones_listado') }}">Sanciones</a></li>
-            <li class="nav-item"><a class="nav-link{% if request.path.startswith('/seguridad') %} active{% endif %}" href="{{ url_for('cambiar_contraseña') }}">Seguridad</a></li>
-            <li class="nav-item"><a class="nav-link{% if request.path.startswith('/participantes') %} active{% endif %}" href="{{ url_for('participantes_listado') }}">Participantes</a></li>
-            <li class="nav-item"><a class="nav-link text-warning fw-bold" href="{{ url_for('logout') }}">Salir</a></li>
+  <!-- Navbar -->
+<nav class="navbar navbar-expand-lg">
+  <div class="container">
+    <a class="navbar-brand fw-semibold" href="{{ url_for('inicio') }}">Sistema de Salas</a>
+
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMain" aria-label="Abrir menú">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div id="navMain" class="collapse navbar-collapse">
+      <ul class="navbar-nav ms-auto">
+
+        {% if session.get('usuario') %}
+
+          {% set admin = session.usuario.es_administrador %}
+          {% set invitado = session.usuario.es_invitado %}
+
+          {# ----- INVITADOS: solo reservas ----- #}
+          {% if invitado %}
+            <li class="nav-item">
+              <a class="nav-link{% if request.path.startswith('/reservas') %} active{% endif %}" 
+                 href="{{ url_for('reservas_listado') }}">
+                Reservas
+              </a>
+            </li>
+
           {% else %}
-            <li class="nav-item"><a class="nav-link{% if request.path.startswith('/login') %} active{% endif %}" href="{{ url_for('login') }}">Login</a></li>
+
+            {# ----- Todos los NO invitados ven Salas y Reservas ----- #}
+            <li class="nav-item">
+              <a class="nav-link{% if request.path.startswith('/salas') %} active{% endif %}" 
+                 href="{{ url_for('salas_listado') }}">
+                Salas
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link{% if request.path.startswith('/reservas') %} active{% endif %}" 
+                 href="{{ url_for('reservas_listado') }}">
+                Reservas
+              </a>
+            </li>
+
+            {# ----- Solo ADMIN ve más secciones ----- #}
+            {% if admin %}
+              <li class="nav-item">
+                <a class="nav-link{% if request.path.startswith('/reportes') %} active{% endif %}" 
+                   href="{{ url_for('reportes_index') }}">
+                  Reportes
+                </a>
+              </li>
+
+              <li class="nav-item">
+                <a class="nav-link{% if request.path.startswith('/asistencia') %} active{% endif %}" 
+                   href="{{ url_for('asistencia_index') }}">
+                  Asistencia
+                </a>
+              </li>
+
+              <li class="nav-item">
+                <a class="nav-link{% if request.path.startswith('/participantes') %} active{% endif %}" 
+                   href="{{ url_for('participantes_listado') }}">
+                  Participantes
+                </a>
+              </li>
+            {% endif %}
+
+            {# ----- Todos los NO invitados ven sanciones y seguridad ----- #}
+            <li class="nav-item">
+              <a class="nav-link{% if request.path.startswith('/sanciones') %} active{% endif %}" 
+                 href="{{ url_for('sanciones_listado') }}">
+                Sanciones
+              </a>
+            </li>
+
+            <li class="nav-item">
+              <a class="nav-link{% if request.path.startswith('/seguridad') %} active{% endif %}" 
+                 href="{{ url_for('cambiar_contraseña') }}">
+                Seguridad
+              </a>
+            </li>
+
           {% endif %}
-        </ul>
-      </div>
+
+          {# ----- Botón salir visible para todos ----- #}
+          <li class="nav-item">
+            <a class="nav-link text-warning fw-bold" href="{{ url_for('logout') }}">Salir</a>
+          </li>
+
+        {% else %}
+
+          {# ----- Invitado no logueado ----- #}
+          <li class="nav-item">
+            <a class="nav-link{% if request.path.startswith('/login') %} active{% endif %}" 
+               href="{{ url_for('login') }}">
+              Login
+            </a>
+          </li>
+
+        {% endif %}
+
+      </ul>
     </div>
-  </nav>
+  </div>
+</nav>
 
   <!-- Hero global (con logo y fondo) -->
   <section class="site-hero is-ucu">
