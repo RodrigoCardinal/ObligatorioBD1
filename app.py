@@ -7,7 +7,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from flask_mysqldb import MySQL
 import MySQLdb.cursors
 from werkzeug.security import check_password_hash, generate_password_hash
-from hash_url import hash_url_md5
+from hashids import Hashids
 
 # ---------------------------
 # App & DB
@@ -25,12 +25,13 @@ app.jinja_env.cache = {}
 print("Templates dir:", os.path.abspath(app.template_folder))
 print("Static dir:", os.path.abspath(app.static_folder))
 
-app.config['MYSQL_HOST'] = 'localhost'
+app.config['MYSQL_HOST'] = '127.0.0.1'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'root'
+app.config['MYSQL_PASSWORD'] = 'VivaCubaLibre1514'
 app.config['MYSQL_DB'] = 'ObligatorioBD1'
 
 mysql = MySQL(app)
+hashids = Hashids(salt=app.secret_key, min_length=8)
 
 # ---------------------------
 # Helpers imágenes de salas
@@ -66,9 +67,6 @@ _ALIAS = {
     _slug('Lab A'): _slug('Laboratorio'),
 }
 
-from flask import url_for
-
-
 def _imagen_sala_url(nombre_sala: str):
     if not nombre_sala:
         return None
@@ -84,6 +82,32 @@ def _imagen_sala_url(nombre_sala: str):
     for base_slug, real in _INDEX_IMG.items():
         if s in base_slug or base_slug in s:
             return url_for('static', filename=os.path.join(SALAS_REL_DIR, real))
+    return None
+
+def hash_id(id_reserva):
+    """Convierte un ID numérico a hash"""
+    return hashids.encode(id_reserva)
+
+def unhash_id(hashed_id):
+    """Convierte un hash de vuelta a ID numérico"""
+    try:
+        decoded = hashids.decode(hashed_id)
+        return decoded[0] if decoded else None
+    except:
+        return None
+
+@app.context_processor
+def utility_processor():
+    return dict(hash_id=hash_id)
+
+@app.context_processor
+def inject_now():
+    return {'now': datetime.now}
+
+
+def _require_login():
+    if "usuario" not in session:
+        return redirect(url_for("login"))
     return None
 
 # ============================================================
@@ -178,7 +202,7 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
                 fecha=fecha
             ))
         else:
-            return redirect(url_for("reserva_detalle", id=id_reserva))
+            return redirect(url_for("reserva_detalle", hashed_id=id_reserva))
 
     # ============================================================
     #  VALIDACIÓN OBLIGATORIA: NO PERMITIR RESERVAS PASADAS
@@ -238,7 +262,7 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
         flash("No puedes crear ni unirte a una reserva pasada.", "danger")
 
         if id_reserva:
-            return redirect(url_for("reserva_detalle", id=id_reserva))
+            return redirect(url_for("reserva_detalle", hashed_id=id_reserva))
         else:
             return redirect(url_for("reservas_crear"))
 
@@ -304,7 +328,7 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
                                     nombre_sala=nombre_sala,
                                     fecha=fecha))
         else:  # uniéndose
-            return redirect(url_for("reserva_detalle", id=id_reserva))
+            return redirect(url_for("reserva_detalle", hashed_id=id_reserva))
 
     # --- 3) Límite diario: máximo 2 reservas
     cur.execute("""
@@ -328,7 +352,7 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
                                     nombre_sala=nombre_sala,
                                     fecha=fecha))
         else:  # uniéndose
-            return redirect(url_for("reserva_detalle", id=id_reserva))
+            return redirect(url_for("reserva_detalle", hashed_id=id_reserva))
 
     # ============================================================
     # VALIDACIONES EXTRA AL UNIRSE (id_reserva != None)
@@ -352,7 +376,7 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
         if not check_password_hash(clave_correcta, clave_ingresa):
             cur.close()
             flash("Tenés que ingresar la contraseña de la reserva.", "danger")
-            return redirect(url_for("reserva_detalle", id=id_reserva))
+            return redirect(url_for("reserva_detalle", hahed_id=id_reserva))
 
 
         # --- Verificar capacidad ---
@@ -369,7 +393,7 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
         if datos_cap["actuales"] >= datos_cap["capacidad"]:
             cur.close()
             flash("La sala ya alcanzó su capacidad máxima.", "danger")
-            return redirect(url_for("reserva_detalle", id=id_reserva))
+            return redirect(url_for("reserva_detalle", hashed_id=id_reserva))
 
         # --- Evitar reservas simultáneas ---
         cur.execute("""
@@ -392,24 +416,12 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
         if cur.fetchone():
             cur.close()
             flash("Ya tenés una reserva en este mismo horario.", "danger")
-            return redirect(url_for("reserva_detalle", id=id_reserva))
+            return redirect(url_for("reserva_detalle", hashed_id=id_reserva))
 
 
     # --- si no hay problemas, devolvemos True
     cur.close()
     return True
-
-
-@app.context_processor
-def inject_now():
-    return {'now': datetime.now}
-
-
-def _require_login():
-    if "usuario" not in session:
-        return redirect(url_for("login"))
-    return None
-
 
 # ---------------------------
 # Autenticador
@@ -420,11 +432,11 @@ def login():
     if request.method == "POST":
         correo = request.form["correo"]
         contraseña = request.form.get("contraseña")
-        rol_seleccionado = request.form.get("rol_admin")  # Nueva opción
+        rol_seleccionado = request.form.get("rol_admin")
 
         cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
-        # Si viene de la selección de rol (ya validado previamente)
+        #si viene de la selección de rol (ya validado previamente)
         if rol_seleccionado and session.get("admin_validado") == correo:
             # Recuperar datos del usuario ya validado
             cur.execute("""
@@ -738,7 +750,6 @@ def reservas_listado():
                  r.estado
           FROM reserva r
                    JOIN turno t ON t.id_turno = r.id_turno
-          WHERE 1=1
           """
     params = []
     if estado:
@@ -754,18 +765,27 @@ def reservas_listado():
 
     cur.execute(sql, tuple(params))
     reservas = cur.fetchall()
+
+    # Hashear los IDs de las reservas
+    for reserva in reservas:
+        reserva['id_hash'] = hash_id(reserva['id_reserva'])
     cur.close()
-    
+
     es_admin = session['usuario'].get('es_administrador', False)
 
     return render_template("reservas.html", reservas=reservas, es_admin=es_admin)
 
-
-@app.get("/reservas/<int:id>")
-def reserva_detalle(id):
+@app.get("/reservas/<string:hashed_id>")
+def reserva_detalle(hashed_id):
     need = _require_login()
     if need:
         return need
+
+    # Convertir hash a ID
+    id_reserva = unhash_id(hashed_id)
+    if id_reserva is None:
+        flash("Reserva no encontrada.", "danger")
+        return redirect(url_for("reservas_listado"))
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
@@ -786,13 +806,16 @@ def reserva_detalle(id):
                          JOIN edificio e on s.edificio = e.nombre_edificio
                          JOIN turno t ON t.id_turno = r.id_turno
                 WHERE r.id_reserva = %s
-                """, (id,))
+                """, (id_reserva,))
     r = cur.fetchone()
 
     if not r:
         cur.close()
         flash("Reserva no encontrada.", "danger")
         return redirect(url_for("reservas_listado"))
+
+    # Agregar hash al resultado
+    r['id_hash'] = hashed_id
 
     # --- Participantes de la reserva ---
     cur.execute("""
@@ -801,7 +824,7 @@ def reserva_detalle(id):
                          JOIN participante p ON p.ci = rp.ci_participante
                 WHERE rp.id_reserva = %s
                 ORDER BY p.apellido, p.nombre
-                """, (id,))
+                """, (id_reserva, ))
     participantes = cur.fetchall()
 
     # --- Verificar si el usuario actual forma parte de la reserva ---
@@ -810,7 +833,7 @@ def reserva_detalle(id):
                 FROM reserva_participante
                 WHERE id_reserva = %s
                   AND ci_participante = %s
-                """, (id, session["usuario"]["ci"]))
+                """, (id_reserva, session["usuario"]["ci"]))
     usuario_en_reserva = cur.fetchone() is not None
 
     cur.close()
@@ -827,8 +850,8 @@ def reserva_detalle(id):
         usuario_en_reserva=usuario_en_reserva
     )
 
-@app.post("/reservas/<int:id>/eliminar")
-def reservas_eliminar(id):
+@app.post("/reservas/<string:hashed_id>/eliminar")
+def reservas_eliminar(hashed_id):
     need = _require_login()
     if need: return need
 
@@ -836,27 +859,39 @@ def reservas_eliminar(id):
         flash("No tienes permiso para eliminar reservas.", "danger")
         return redirect(url_for("reservas_listado"))
 
+    # Convertir hash a ID
+    id_reserva = unhash_id(hashed_id)
+    if id_reserva is None:
+        flash("Reserva no encontrada.", "danger")
+        return redirect(url_for("reservas_listado"))
+
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
     # Borramos participantes primero por FK
-    cur.execute("DELETE FROM reserva_participante WHERE id_reserva=%s", (id,))
+    cur.execute("DELETE FROM reserva_participante WHERE id_reserva=%s", (id_reserva, ))
 
-    # Borro la reserva
-    cur.execute("DELETE FROM reserva WHERE id_reserva=%s", (id,))
+    # Borramos la reserva
+    cur.execute("DELETE FROM reserva WHERE id_reserva=%s", (id_reserva, ))
     mysql.connection.commit()
     cur.close()
 
     flash("Reserva eliminada correctamente.", "success")
     return redirect(url_for("reservas_listado"))
 
-@app.route("/reservas/<int:id>/editar", methods=["GET","POST"])
-def reservas_editar(id):
+@app.route("/reservas/<string:hashed_id>/editar", methods=["GET","POST"])
+def reservas_editar(hashed_id):
     need = _require_login()
-    if need: 
+    if need:
         return need
 
     if not session["usuario"].get("es_administrador"):
         flash("No tienes permiso para modificar reservas.", "danger")
+        return redirect(url_for("reservas_listado"))
+
+    # Convertir hash a ID
+    id_reserva = unhash_id(hashed_id)
+    if id_reserva is None:
+        flash("Reserva no encontrada.", "danger")
         return redirect(url_for("reservas_listado"))
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
@@ -867,24 +902,24 @@ def reservas_editar(id):
         fecha = request.form.get("fecha")
         id_turno = request.form.get("id_turno", type=int)
         nuevo_estado = request.form.get("estado")
-        
+
         # Validaciones
         if not all([edificio, nombre_sala, fecha, id_turno, nuevo_estado]):
             flash("Todos los campos son obligatorios.", "danger")
             cur.close()
-            return redirect(url_for("reservas_editar", id=id))
+            return redirect(url_for("reservas_editar", hashed_id=hashed_id, ))
 
         # Validar que el estado sea válido
         estados_validos = ['activa', 'cancelada', 'finalizada', 'sin asistencia']
         if nuevo_estado not in estados_validos:
             flash("Estado no válido.", "danger")
             cur.close()
-            return redirect(url_for("reservas_editar", id=id))
+            return redirect(url_for("reservas_editar", hashed_id=hashed_id))
 
         # Verificar que la reserva existe
-        cur.execute("SELECT * FROM reserva WHERE id_reserva=%s", (id,))
+        cur.execute("SELECT * FROM reserva WHERE id_reserva=%s", (id_reserva,))
         reserva_actual = cur.fetchone()
-        
+
         if not reserva_actual:
             flash("Reserva no encontrada.", "danger")
             cur.close()
@@ -896,25 +931,25 @@ def reservas_editar(id):
             FROM sala 
             WHERE nombre_sala=%s AND edificio=%s
         """, (nombre_sala, edificio))
-        
+
         if not cur.fetchone():
             flash("La sala no existe en ese edificio.", "danger")
             cur.close()
-            return redirect(url_for("reservas_editar", id=id))
+            return redirect(url_for("reservas_editar", hashed_id=hashed_id))
 
         # Verificar que el turno existe
         cur.execute("SELECT id_turno FROM turno WHERE id_turno=%s", (id_turno,))
         if not cur.fetchone():
             flash("El turno seleccionado no existe.", "danger")
             cur.close()
-            return redirect(url_for("reservas_editar", id=id))
+            return redirect(url_for("reservas_editar", hashed_id=hashed_id))
 
         # Validar fecha (no permitir fechas pasadas)
         fecha_obj = datetime.strptime(fecha, "%Y-%m-%d").date()
         if fecha_obj < date.today():
             flash("No se puede asignar una fecha pasada.", "danger")
             cur.close()
-            return redirect(url_for("reservas_editar", id=id))
+            return redirect(url_for("reservas_editar", hashed_id=hashed_id))
 
         # Verificar si el turno está ocupado (solo si cambió sala/fecha/turno)
         cambio_horario = (
@@ -934,12 +969,12 @@ def reservas_editar(id):
                   AND id_turno=%s 
                   AND id_reserva != %s
                   AND estado IN ('activa', 'sin asistencia', 'finalizada')
-            """, (edificio, nombre_sala, fecha, id_turno, id))
-            
+            """, (edificio, nombre_sala, fecha, id_turno, id_reserva))
+
             if cur.fetchone():
                 flash("Ese horario ya está ocupado por otra reserva.", "danger")
                 cur.close()
-                return redirect(url_for("reservas_editar", id=id))
+                return redirect(url_for("reservas_editar", hashed_id=hashed_id))
 
         # Actualizar la reserva
         cur.execute("""
@@ -950,22 +985,25 @@ def reservas_editar(id):
                 id_turno=%s,
                 estado=%s
             WHERE id_reserva=%s
-        """, (edificio, nombre_sala, fecha, id_turno, nuevo_estado, id))
-        
+        """, (edificio, nombre_sala, fecha, id_turno, nuevo_estado, id_reserva))
+
         mysql.connection.commit()
         cur.close()
 
         flash("Reserva modificada correctamente.", "success")
-        return redirect(url_for("reserva_detalle", id=id))
+        return redirect(url_for("reserva_detalle", hashed_id=hashed_id))
 
-    # GET → obtener datos actuales
-    cur.execute("SELECT * FROM reserva WHERE id_reserva=%s", (id,))
+    # GET obtener datos actuales
+    cur.execute("SELECT * FROM reserva WHERE id_reserva=%s", (id_reserva,))
     r = cur.fetchone()
-    
+
     if not r:
         flash("Reserva no encontrada.", "danger")
         cur.close()
         return redirect(url_for("reservas_listado"))
+
+    # Agregar hash
+    r['id_hash'] = hashed_id
 
     # Obtener edificios
     cur.execute("SELECT DISTINCT nombre_edificio FROM edificio ORDER BY nombre_edificio")
@@ -978,7 +1016,7 @@ def reservas_editar(id):
         ORDER BY edificio, nombre_sala
     """)
     todas_salas = cur.fetchall()
-    
+
     # Crear diccionario de salas por edificio
     salas_por_edificio = {}
     for s in todas_salas:
@@ -1003,7 +1041,7 @@ def reservas_editar(id):
         JOIN participante p ON p.ci = rp.ci_participante
         WHERE rp.id_reserva = %s
         ORDER BY p.apellido, p.nombre
-    """, (id,))
+    """, (id_reserva,))
     participantes = cur.fetchall()
 
     cur.close()
@@ -1011,8 +1049,8 @@ def reservas_editar(id):
     import json
     salas_json = json.dumps(salas_por_edificio)
 
-    return render_template("reserva_editar.html", 
-                         r=r, 
+    return render_template("reserva_editar.html",
+                         r=r,
                          edificios=edificios,
                          turnos=turnos,
                          participantes=participantes,
@@ -1020,8 +1058,8 @@ def reservas_editar(id):
 
 
 # Nueva ruta para eliminar participante de una reserva
-@app.route("/reservas/<int:id>/participante/<int:ci>/eliminar", methods=["POST"])
-def reservas_eliminar_participante(id, ci):
+@app.route("/reservas/<string:hashed_id>/participante/<int:ci>/eliminar", methods=["POST"])
+def reservas_eliminar_participante(hashed_id, ci):
     need = _require_login()
     if need:
         return need
@@ -1030,12 +1068,18 @@ def reservas_eliminar_participante(id, ci):
         flash("No tienes permiso para modificar reservas.", "danger")
         return redirect(url_for("reservas_listado"))
 
+    # Convertir hash a ID
+    id = unhash_id(hashed_id)
+    if id is None:
+        flash("Reserva no encontrada.", "danger")
+        return redirect(url_for("reservas_listado"))
+
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
     # Verificar que la reserva existe
     cur.execute("SELECT * FROM reserva WHERE id_reserva=%s", (id,))
     reserva = cur.fetchone()
-    
+
     if not reserva:
         flash("Reserva no encontrada.", "danger")
         cur.close()
@@ -1069,10 +1113,16 @@ def reservas_eliminar_participante(id, ci):
     mysql.connection.commit()
     cur.close()
 
-    return redirect(url_for("reservas_editar", id=id))
-    
-@app.route("/baja_reserva/<int:id>", methods=["POST"])
-def baja_reserva(id):
+    return redirect(url_for("reservas_editar", hashed_id=hashed_id))
+
+@app.route("/baja_reserva/<string:hashed_id>", methods=["POST"])
+def baja_reserva(hashed_id):
+    # Convertir hash a ID
+    id_reserva = unhash_id(hashed_id)
+    if id_reserva is None:
+        flash("Reserva no encontrada.", "danger")
+        return redirect(url_for("reservas_listado"))
+
     user_ci = session["usuario"].get("ci")
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
@@ -1082,7 +1132,7 @@ def baja_reserva(id):
                 SELECT COUNT(*) AS total
                 FROM reserva_participante
                 WHERE id_reserva = %s
-                """, (id,))
+                """, (id_reserva,))
     total = cur.fetchone()["total"]
 
     # Eliminar al usuario actual de la reserva
@@ -1091,7 +1141,7 @@ def baja_reserva(id):
                 FROM reserva_participante
                 WHERE id_reserva = %s
                   AND ci_participante = %s
-                """, (id, user_ci))
+                """, (id_reserva, user_ci))
 
     # Si era el único participante → cancelar la reserva
     if total == 1:
@@ -1099,13 +1149,13 @@ def baja_reserva(id):
                     UPDATE reserva
                     SET estado = 'cancelada'
                     WHERE id_reserva = %s
-                    """, (id,))
+                    """, (id_reserva,))
 
     mysql.connection.commit()
     cur.close()
 
     flash("Te has dado de baja de la reserva.", "success")
-    return redirect(url_for("reservas_listado"))
+    return redirect(url_for("reservas_listado", hashed_id=hashed_id))
 
 
 @app.route("/reservas/nueva", methods=["GET", "POST"])
@@ -1139,13 +1189,8 @@ def reservas_crear():
         #hasheamos la contraseña de la reserva
         if not clave_reserva.startswith("scrypt:32768:8:1$"):
             clave_hasheada = generate_password_hash(clave_reserva)
-            cur.execute(
-                "UPDATE ObligatorioBD1.login SET contraseña = %s WHERE correo = %s",
-                (clave_hasheada, session['usuario'].get('correo'))
-                )
-            print(f"Contraseña rehasheada para {session['usuario'].get('correo')}")
 
-        # si llegamos acá, verificador devolvió True => crear reserva
+        #si verificador devolvió True => crear reserva
         cur.execute("""
                     INSERT INTO reserva (nombre_sala, edificio, fecha, id_turno, estado, clave_reserva)
                     VALUES (%s, %s, %s, %s, 'activa', %s)
@@ -1171,8 +1216,10 @@ def reservas_crear():
         mysql.connection.commit()
         cur.close()
 
+        hashed_id = hash_id(id_reserva)
+
         flash("Reserva creada.", "success")
-        return redirect(url_for("reserva_detalle", id=id_reserva))
+        return redirect(url_for("reserva_detalle", hashed_id=hashed_id))
 
     # -- GET --
     edificio = request.args.get("edificio")
@@ -1234,14 +1281,17 @@ def reservas_unirse():
     if need:
         return need
 
-    id_reserva = request.form.get("id_reserva", type=int)
+    hashed_id = request.form.get("hashed_id")
     clave_ingresa = request.form.get("clave_reserva")
 
-    print("### DEBUG - RUTA /reservas/unirse")
-    print("clave_ingresa:", repr(clave_ingresa))
-
-    if not id_reserva:
+    if not hashed_id:
         flash("Reserva inválida.", "danger")
+        return redirect(url_for("reservas_listado"))
+
+    # Convertir hash a ID
+    id_reserva = unhash_id(hashed_id)
+    if id_reserva is None:
+        flash("Reserva no encontrada.", "danger")
         return redirect(url_for("reservas_listado"))
     
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
@@ -1278,7 +1328,6 @@ def reservas_unirse():
     if verifica_validez is not True:
         return verifica_validez
     else:
-        # Si pasa el verificador, recién ahí hacemos el INSERT
         cur.execute("""
                     INSERT INTO reserva_participante (ci_participante, id_reserva, fecha_solicitud_reserva, asistencia)
                     VALUES (%s, %s, %s, false)
@@ -1287,7 +1336,7 @@ def reservas_unirse():
         cur.close()
 
         flash("Te uniste a la reserva.", "success")
-        return redirect(url_for("reserva_detalle", id=id_reserva))
+        return redirect(url_for("reserva_detalle", hashed_id=hashed_id))
 
 
 # ---------------------------

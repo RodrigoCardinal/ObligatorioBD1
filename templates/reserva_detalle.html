@@ -87,7 +87,7 @@
   <div class="text-center mt-5">
     {% if not usuario_en_reserva %}
       <form method="POST" action="{{ url_for('reservas_unirse') }}" class="d-inline-block" style="max-width: 320px;">
-        <input type="hidden" name="id_reserva" value="{{ r.id_reserva }}">
+        <input type="hidden" name="hashed_id" value="{{ r.id_hash }}">
 
         <!-- AQUÍ SE PIDE LA CONTRASEÑA PARA UNIRSE -->
         <div class="mb-3 text-start">
@@ -98,7 +98,7 @@
         <button type="submit" class="btn btn-primary px-4 py-2">Unirme a la reserva</button>
       </form>
     {% else %}
-      <form method="POST" action="{{ url_for('baja_reserva', hash_id=r.id_reserva) }}">
+      <form method="POST" action="{{ url_for('baja_reserva', hashed_id=r.id_hash) }}">
         <button type="submit" class="btn btn-outline-primary px-4 py-2">Darme de baja</button>
       </form>
     {% endif %}
@@ -107,10 +107,10 @@
   {% if session.usuario.es_admin %}
   <div class="text-center mt-3 d-flex justify-content-center gap-3">
 
-      <a href="{{ url_for('reservas_editar', hash_id=r.id_reserva) }}"
+      <a href="{{ url_for('reservas_editar', hashed_id=r.id_hash) }}"
          class="btn btn-warning px-4">Modificar reserva</a>
 
-      <form action="{{ url_for('reservas_eliminar', hash_id=r.id_reserva) }}"
+      <form action="{{ url_for('reservas_eliminar',hashed_id=r.id_hash) }}"
             method="POST"
             onsubmit="return confirm('¿Seguro que deseas eliminar esta reserva?');">
         <button class="btn btn-danger px-4">Eliminar</button>

@@ -14,7 +14,7 @@
       <div class="card-body p-4">
         <h2 class="section-title h4 mb-4">Información de la Reserva</h2>
         
-        <form method="POST" action="{{ url_for('reservas_editar', id=r.id_reserva) }}" id="formEditar">
+        <form method="POST" action="{{ url_for('reservas_editar', hashed_id=r.id_hash) }}" id="formEditar">
           <!-- Edificio -->
           <div class="mb-3">
             <label for="edificio" class="form-label fw-semibold">Edificio</label>
@@ -77,7 +77,7 @@
 
           <!-- Botones de acción -->
           <div class="d-flex gap-2 justify-content-end">
-            <a href="{{ url_for('reserva_detalle', id=r.id_reserva) }}" class="btn btn-outline-secondary">
+            <a href="{{ url_for('reserva_detalle', hashed_id=r.id_hash) }}" class="btn btn-outline-secondary">
               Cancelar
             </a>
             <button type="submit" class="btn btn-primary px-4">
@@ -110,7 +110,7 @@
                   <strong class="d-block">{{ p.nombre }}</strong>
                   <small class="text-muted">CI: {{ p.ci }}</small>
                 </div>
-                <form method="POST" action="{{ url_for('reservas_eliminar_participante', id=r.id_reserva, ci=p.ci) }}"
+                <form method="POST" action="{{ url_for('reservas_eliminar_participante', hashed_id=r.id_hash, ci=p.ci) }}"
                       class="d-inline"
                       onsubmit="return confirm('¿Eliminar a {{ p.nombre }} de esta reserva?');">
                   <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar participante">

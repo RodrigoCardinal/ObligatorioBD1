@@ -9,6 +9,7 @@ INSERT INTO ObligatorioBD1.login (correo, contraseña, es_administrador) VALUES
 ('carlos.silva@ucu.edu.uy', 'SilvaC#33$',False),
 ('sofia.fernandez@ucu.edu.uy', 'SofiFz_2025!',False),
 ('martin.lopez@ucu.edu.uy', 'Mlopez#77*',True);
+
 -- Tabla: facultad
 INSERT INTO ObligatorioBD1.facultad (id_facultad, nombre) VALUES
 (1, 'Facultad de Ingeniería y Tecnologías'),
@@ -75,14 +76,14 @@ INSERT INTO ObligatorioBD1.turno (hora_inicio, hora_fin) VALUES
 ('22:00', '23:00');
 
 -- Tabla: reserva
-INSERT INTO ObligatorioBD1.reserva (id_reserva, nombre_sala, edificio, fecha, id_turno, estado) VALUES
-(1, 'Lab A', 'Edificio de Ingeniería', '2025-09-01', 1, 'activa'),
-(2, 'Sala 101', 'Edificio Central', '2025-09-01', 2, 'cancelada'),
-(3, 'Aula Magna', 'Edificio Central', '2025-09-02', 3, 'finalizada'),
-(4, 'Sala Posgrado 1', 'Campus Punta del Este', '2025-09-02', 1, 'activa'),
-(5, 'Lab A', 'Edificio de Ingeniería', '2025-09-03', 2, 'sin asistencia'),
-(6, 'Sala Docente 2', 'Edificio de Ingeniería', '2025-09-04', 3, 'finalizada'),
-(7, 'Sala 101', 'Edificio Central', '2025-09-05', 4, 'activa');
+INSERT INTO ObligatorioBD1.reserva (id_reserva, nombre_sala, edificio, fecha, id_turno, estado, clave_reserva) VALUES
+(1, 'Lab A', 'Edificio de Ingeniería', '2025-09-01', 1, 'activa', 'prueba'),
+(2, 'Sala 101', 'Edificio Central', '2025-09-01', 2, 'cancelada', 'prueba'),
+(3, 'Aula Magna', 'Edificio Central', '2025-09-02', 3, 'finalizada', 'prueba'),
+(4, 'Sala Posgrado 1', 'Campus Punta del Este', '2025-09-02', 1, 'activa', 'prueba'),
+(5, 'Lab A', 'Edificio de Ingeniería', '2025-09-03', 2, 'sin asistencia', 'prueba'),
+(6, 'Sala Docente 2', 'Edificio de Ingeniería', '2025-09-04', 3, 'finalizada', 'prueba'),
+(7, 'Sala 101', 'Edificio Central', '2025-09-05', 4, 'activa', 'prueba');
 
 -- Tabla: reserva_participante
 INSERT INTO ObligatorioBD1.reserva_participante (ci_participante, id_reserva, fecha_solicitud_reserva, asistencia) VALUES
