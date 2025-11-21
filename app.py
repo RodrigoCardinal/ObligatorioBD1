@@ -27,7 +27,7 @@ print("Static dir:", os.path.abspath(app.static_folder))
 
 app.config['MYSQL_HOST'] = '127.0.0.1'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'VivaCubaLibre1514'
+app.config['MYSQL_PASSWORD'] = 'root' 
 app.config['MYSQL_DB'] = 'ObligatorioBD1'
 
 mysql = MySQL(app)
@@ -728,11 +728,9 @@ def sala_detalle(edificio, nombre_sala):
     return render_template("sala.html", sala=sala, horarios=horarios, ocupados=ocupados, img=img)
 
 
-# ---------------------------
+# ---------------------------------
 # ABM Salas (solo administradores)
-# ---------------------------
-
-
+# ---------------------------------
 @app.get('/salas/nueva')
 def salas_nueva_form():
     need = _require_login()

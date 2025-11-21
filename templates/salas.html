@@ -39,6 +39,12 @@
   </div>
 </form>
 
+{% if session.get('usuario') and session['usuario'].get('es_administrador') %}
+  <div class="mb-3">
+    <a class="btn btn-success" href="{{ url_for('salas_nueva_form') }}">Nueva sala</a>
+  </div>
+{% endif %}
+
 <h2 class="section-title visually-hidden">Resultados</h2>
 <div class="row grid-cards">
   {% for s in salas %}
@@ -70,7 +76,15 @@
           </div>
           <p class="mb-1 text-muted">Edificio: {{ s.edificio }}</p>
           <p class="mb-3 text-muted">Capacidad: {{ s.capacidad }}</p>
-          <a href="{{ url_for('sala_detalle', edificio=s.edificio, nombre_sala=s.nombre_sala) }}" class="btn btn-primary w-100">Explorar</a>
+          <a href="{{ url_for('sala_detalle', edificio=s.edificio, nombre_sala=s.nombre_sala) }}" class="btn btn-primary w-100 mb-2">Explorar</a>
+          {% if session.get('usuario') and session['usuario'].get('es_administrador') %}
+            <div class="d-flex gap-2">
+              <a class="btn btn-outline-primary w-50" href="{{ url_for('salas_editar_form', edificio=s.edificio, nombre_sala=s.nombre_sala) }}">Editar</a>
+              <form class="w-50" method="post" action="{{ url_for('salas_eliminar', edificio=s.edificio, nombre_sala=s.nombre_sala) }}" onsubmit="return confirm('¿Eliminar sala? Esta acción no se puede deshacer.');">
+                <button type="submit" class="btn btn-outline-danger w-100">Eliminar</button>
+              </form>
+            </div>
+          {% endif %}
         </div>
       </div>
     </div>
