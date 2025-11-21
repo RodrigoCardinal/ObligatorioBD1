@@ -729,6 +729,156 @@ def sala_detalle(edificio, nombre_sala):
 
 
 # ---------------------------
+# ABM Salas (solo administradores)
+# ---------------------------
+
+
+@app.get('/salas/nueva')
+def salas_nueva_form():
+    need = _require_login()
+    if need: return need
+
+    if not session['usuario'].get('es_administrador'):
+        flash('Acceso denegado.', 'danger')
+        return redirect(url_for('salas_listado'))
+
+    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+    cur.execute('SELECT nombre_edificio FROM edificio ORDER BY nombre_edificio')
+    edificios = [r['nombre_edificio'] for r in cur.fetchall()]
+    cur.close()
+    return render_template('sala_form.html', edificios=edificios, sala=None, accion='Crear')
+
+
+@app.post('/salas/nueva')
+def salas_nueva():
+    need = _require_login()
+    if need: return need
+
+    if not session['usuario'].get('es_administrador'):
+        flash('Acceso denegado.', 'danger')
+        return redirect(url_for('salas_listado'))
+
+    nombre = request.form.get('nombre_sala')
+    edificio = request.form.get('edificio')
+    capacidad = request.form.get('capacidad', type=int)
+    tipo = request.form.get('tipo_sala')
+
+    if not nombre or not edificio or capacidad is None or capacidad < 0 or not tipo:
+        flash('Complete todos los campos correctamente.', 'danger')
+        return redirect(url_for('salas_nueva_form'))
+
+    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+    try:
+        cur.execute('INSERT INTO sala (nombre_sala, edificio, capacidad, tipo_sala) VALUES (%s,%s,%s,%s)',
+                    (nombre, edificio, capacidad, tipo))
+        mysql.connection.commit()
+        flash('Sala creada correctamente.', 'success')
+    except Exception as e:
+        mysql.connection.rollback()
+        flash(f'Error al crear sala: {e}', 'danger')
+    finally:
+        cur.close()
+
+    return redirect(url_for('salas_listado'))
+
+
+@app.get('/salas/<path:edificio>/<path:nombre_sala>/editar')
+def salas_editar_form(edificio, nombre_sala):
+    need = _require_login()
+    if need: return need
+
+    if not session['usuario'].get('es_administrador'):
+        flash('Acceso denegado.', 'danger')
+        return redirect(url_for('salas_listado'))
+
+    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+    cur.execute('SELECT nombre_sala, edificio, capacidad, tipo_sala FROM sala WHERE nombre_sala=%s AND edificio=%s',
+                (nombre_sala, edificio))
+    sala = cur.fetchone()
+    if not sala:
+        cur.close()
+        flash('Sala no encontrada.', 'danger')
+        return redirect(url_for('salas_listado'))
+
+    cur.execute('SELECT nombre_edificio FROM edificio ORDER BY nombre_edificio')
+    edificios = [r['nombre_edificio'] for r in cur.fetchall()]
+    cur.close()
+    return render_template('sala_form.html', edificios=edificios, sala=sala, accion='Editar')
+
+
+@app.post('/salas/<path:edificio>/<path:nombre_sala>/editar')
+def salas_editar(edificio, nombre_sala):
+    need = _require_login()
+    if need: return need
+
+    if not session['usuario'].get('es_administrador'):
+        flash('Acceso denegado.', 'danger')
+        return redirect(url_for('salas_listado'))
+
+    nombre_new = request.form.get('nombre_sala')
+    edificio_new = request.form.get('edificio')
+    capacidad = request.form.get('capacidad', type=int)
+    tipo = request.form.get('tipo_sala')
+
+    if not nombre_new or not edificio_new or capacidad is None or capacidad < 0 or not tipo:
+        flash('Complete todos los campos correctamente.', 'danger')
+        return redirect(url_for('salas_editar_form', edificio=edificio, nombre_sala=nombre_sala))
+
+    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+    try:
+        cur.execute('''
+            UPDATE sala
+            SET nombre_sala=%s, edificio=%s, capacidad=%s, tipo_sala=%s
+            WHERE nombre_sala=%s AND edificio=%s
+        ''', (nombre_new, edificio_new, capacidad, tipo, nombre_sala, edificio))
+        if cur.rowcount == 0:
+            flash('No se actualizó ninguna fila (sala no encontrada).', 'warning')
+        else:
+            mysql.connection.commit()
+            flash('Sala actualizada correctamente.', 'success')
+    except Exception as e:
+        mysql.connection.rollback()
+        flash(f'Error al actualizar sala: {e}', 'danger')
+    finally:
+        cur.close()
+
+    return redirect(url_for('salas_listado'))
+
+
+@app.post('/salas/<path:edificio>/<path:nombre_sala>/eliminar')
+def salas_eliminar(edificio, nombre_sala):
+    need = _require_login()
+    if need: return need
+
+    if not session['usuario'].get('es_administrador'):
+        flash('Acceso denegado.', 'danger')
+        return redirect(url_for('salas_listado'))
+
+    cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+    # Verificar si existen reservas asociadas
+    cur.execute('''SELECT 1 FROM reserva WHERE nombre_sala=%s AND edificio=%s LIMIT 1''', (nombre_sala, edificio,))
+    if cur.fetchone():
+        cur.close()
+        flash('No se puede eliminar la sala porque tiene reservas asociadas.', 'danger')
+        return redirect(url_for('salas_listado'))
+
+    try:
+        cur.execute('DELETE FROM sala WHERE nombre_sala=%s AND edificio=%s', (nombre_sala, edificio))
+        if cur.rowcount == 0:
+            flash('Sala no encontrada.', 'warning')
+        else:
+            mysql.connection.commit()
+            flash('Sala eliminada.', 'success')
+    except Exception as e:
+        mysql.connection.rollback()
+        flash(f'Error al eliminar sala: {e}', 'danger')
+    finally:
+        cur.close()
+
+    return redirect(url_for('salas_listado'))
+
+
+# ---------------------------
 # Reservas (listado, detalle, crear, unirse)
 # ---------------------------
 @app.get("/reservas")
