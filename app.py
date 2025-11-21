@@ -113,7 +113,6 @@ def _require_login():
 # ============================================================
 # CONDICIONALES al crear o unirse a una reserva
 # ============================================================
-
 def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_ingresa=None):
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
@@ -242,18 +241,18 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
 
         hora_inicio = row["hora_inicio"]
 
-        # ============================================================
-        # Normalizar hora_inicio (puede venir como str, time o timedelta)
-        # ============================================================
+    # ============================================================
+    # Normalizar hora_inicio
+    # ============================================================
     if isinstance(hora_inicio, str):
         hora_inicio = datetime.strptime(hora_inicio, "%H:%M:%S").time()
 
     elif isinstance(hora_inicio, timedelta):
         hora_inicio = (datetime.min + hora_inicio).time()
 
-        # ============================================================
-        # PROHIBIR RESERVAS PASADAS
-        # ============================================================
+    # ============================================================
+    # PROHIBIR RESERVAS PASADAS
+    # ============================================================
     fecha_hora_reserva = datetime.combine(fecha_reserva, hora_inicio)
     ahora = datetime.now()
 
@@ -292,67 +291,68 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
                 nombre_sala=nombre_sala,
                 fecha=fecha
             ))
+    # Limitaciones para estudiantes de grado
+    if tipo_user == "alumno_grado":
+        # --- 2) Límite semanal (máximo 3 activas + sin asistencia)
+        # print("DEBUG — CI:", ci)
+        # print("DEBUG — Fecha nueva reserva:", fecha)
 
-    # --- 2) Límite semanal (máximo 3 activas + sin asistencia)
-    # print("DEBUG — CI:", ci)
-    # print("DEBUG — Fecha nueva reserva:", fecha)
+        cur.execute("""
+                    SELECT r.id_reserva, r.fecha, r.estado
+                    FROM reserva r
+                             JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
+                    WHERE rp.ci_participante = %s
+                    ORDER BY r.fecha DESC
+                    """, (ci,))
+        # print("DEBUG — Todas sus reservas:", cur.fetchall())
 
-    cur.execute("""
-                SELECT r.id_reserva, r.fecha, r.estado
-                FROM reserva r
-                         JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
-                WHERE rp.ci_participante = %s
-                ORDER BY r.fecha DESC
-                """, (ci,))
-    # print("DEBUG — Todas sus reservas:", cur.fetchall())
+        cur.execute("""
+                    SELECT COUNT(*) AS total
+                    FROM reserva r
+                             JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
+                    WHERE rp.ci_participante = %s
+                      AND r.estado = 'activa'
+                      AND YEARWEEK(r.fecha, 1) = YEARWEEK(%s, 1)
+                    """, (ci, fecha))
 
-    cur.execute("""
-                SELECT COUNT(*) AS total
-                FROM reserva r
-                         JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
-                WHERE rp.ci_participante = %s
-                  AND r.estado = 'activa'
-                  AND YEARWEEK(r.fecha, 1) = YEARWEEK(%s, 1)
-                """, (ci, fecha))
+        row = cur.fetchone()
+        total = row["total"]
 
-    row = cur.fetchone()
-    total = row["total"]
+        if total >= 3:
+            cur.close()
+            flash("No podés participar en más de 3 reservas activas en la semana.", "danger")
 
-    if total >= 3:
-        cur.close()
-        flash("No podés participar en más de 3 reservas activas en la semana.", "danger")
+            if id_reserva is None:  # creando
+                return redirect(url_for("reservas_crear",
+                                        edificio=edificio,
+                                        nombre_sala=nombre_sala,
+                                        fecha=fecha))
+            else:  # uniéndose
+                return redirect(url_for("reserva_detalle", hashed_id=id_reserva))
 
-        if id_reserva is None:  # creando
-            return redirect(url_for("reservas_crear",
-                                    edificio=edificio,
-                                    nombre_sala=nombre_sala,
-                                    fecha=fecha))
-        else:  # uniéndose
-            return redirect(url_for("reserva_detalle", hashed_id=id_reserva))
+        # --- 3) Límite diario: máximo 2 reservas
+        cur.execute("""
+                    SELECT COUNT(*) AS total
+                    FROM reserva r
+                             JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
+                    WHERE rp.ci_participante = %s
+                      AND r.estado = 'activa'
+                      AND r.fecha = %s
+                    """, (ci, fecha))
 
-    # --- 3) Límite diario: máximo 2 reservas
-    cur.execute("""
-                SELECT COUNT(*) AS total
-                FROM reserva r
-                         JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
-                WHERE rp.ci_participante = %s
-                  AND r.estado = 'activa'
-                  AND r.fecha = %s
-                """, (ci, fecha))
+        row = cur.fetchone()
+        total = row["total"] if row else 0
 
-    row = cur.fetchone()
-    total = row["total"] if row else 0
-
-    if total >= 2:
-        cur.close()
-        flash("No podés participar en más de 2 reservas por día.", "danger")
-        if id_reserva is None:  # creando
-            return redirect(url_for("reservas_crear",
-                                    edificio=edificio,
-                                    nombre_sala=nombre_sala,
-                                    fecha=fecha))
-        else:  # uniéndose
-            return redirect(url_for("reserva_detalle", hashed_id=id_reserva))
+        if total >= 2:
+            cur.close()
+            flash("No podés participar en más de 2 reservas por día.", "danger")
+            if id_reserva is None:  # creando
+                return redirect(url_for("reservas_crear",
+                                        edificio=edificio,
+                                        nombre_sala=nombre_sala,
+                                        fecha=fecha))
+            else:  # uniéndose
+                return redirect(url_for("reserva_detalle", hashed_id=id_reserva))
 
     # ============================================================
     # VALIDACIONES EXTRA AL UNIRSE (id_reserva != None)
@@ -2379,9 +2379,6 @@ def participantes_eliminar(ci):
 # ==========================================
 @app.route('/recuperar-contrasena', methods=["GET", "POST"])
 def recuperar_contraseña():
-    if session["usuario"].get("es_invitado"):
-        return redirect(url_for("inicio"))
-
     if request.method == "POST":
         flash("Si el correo existe, te enviamos un enlace.", "success")
         return redirect(url_for("login"))

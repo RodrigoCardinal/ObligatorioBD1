@@ -25,7 +25,7 @@ for usuario in usuarios:
             "UPDATE ObligatorioBD1.login SET contraseña = %s WHERE correo = %s",
             (nueva, usuario["correo"])
         )
-        print(f"Contraseña rehasheada para {usuario['correo']}")
+        print(f"Contraseña hasheada para {usuario['correo']}")
 
 conn.commit()
 conn.close()
