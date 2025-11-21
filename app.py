@@ -36,8 +36,8 @@ hashids = Hashids(salt=app.secret_key, min_length=8)
 # ---------------------------
 # Helpers imágenes de salas
 # ---------------------------
-SALAS_REL_DIR = os.path.join('assets', 'Salas')  # relativo a /static
-SALAS_ABS_DIR = os.path.join(app.static_folder, SALAS_REL_DIR)
+SALAS_REL_DIR = "assets/Salas"
+SALAS_ABS_DIR = os.path.join(app.static_folder, "assets", "Salas")
 _IMG_EXTS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
 
 
@@ -60,7 +60,7 @@ _ALIAS = {
     _slug('Aula Magna'): _slug('AulaMagna'),
     _slug('Biblioteca'): _slug('BIBLIOTECA'),
     _slug('Laboratorio'): _slug('Laboratorio'),
-    _slug('Sala de profesores'): _slug('sala-de-profesores'),
+    _slug('Sala Docente 2'): _slug('sala-de-profesores'),
     _slug('Sala 101'): _slug('Salon101'),
     _slug('Salón 101'): _slug('Salon101'),
     _slug('Sala Posgrado 1'): _slug('SalaPosgrado'),
@@ -70,18 +70,20 @@ _ALIAS = {
 def _imagen_sala_url(nombre_sala: str):
     if not nombre_sala:
         return None
+
     s = _slug(nombre_sala)
 
     alias = _ALIAS.get(s)
     if alias and alias in _INDEX_IMG:
-        return url_for('static', filename=os.path.join(SALAS_REL_DIR, _INDEX_IMG[alias]))
+        return url_for('static', filename=f"{SALAS_REL_DIR}/{_INDEX_IMG[alias]}")
 
     if s in _INDEX_IMG:
-        return url_for('static', filename=os.path.join(SALAS_REL_DIR, _INDEX_IMG[s]))
+        return url_for('static', filename=f"{SALAS_REL_DIR}/{_INDEX_IMG[s]}")
 
     for base_slug, real in _INDEX_IMG.items():
         if s in base_slug or base_slug in s:
-            return url_for('static', filename=os.path.join(SALAS_REL_DIR, real))
+            return url_for('static', filename=f"{SALAS_REL_DIR}/{real}")
+
     return None
 
 def hash_id(id_reserva):
