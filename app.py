@@ -594,7 +594,7 @@ def salas_listado():
     cur.execute("SELECT DISTINCT tipo_sala FROM sala ORDER BY tipo_sala")
     tipos = [r["tipo_sala"] for r in cur.fetchall()]
 
-    sql = "SELECT nombre_sala, edificio, capacidad, tipo_sala FROM sala WHERE 1=1"
+    sql = "SELECT nombre_sala, edificio, capacidad, tipo_sala FROM sala"
     params = []
     if edificio:   sql += " AND edificio=%s";      params.append(edificio)
     if tipo_sala:  sql += " AND tipo_sala=%s";     params.append(tipo_sala)
