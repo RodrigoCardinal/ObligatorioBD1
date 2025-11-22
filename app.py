@@ -25,9 +25,9 @@ app.jinja_env.cache = {}
 print("Templates dir:", os.path.abspath(app.template_folder))
 print("Static dir:", os.path.abspath(app.static_folder))
 
-app.config['MYSQL_HOST'] = '127.0.0.1'
+app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'root' 
+app.config['MYSQL_PASSWORD'] = 'tu_contraseña'
 app.config['MYSQL_DB'] = 'ObligatorioBD1'
 
 mysql = MySQL(app)
@@ -517,7 +517,7 @@ def login():
 
         else:  
             # Invitado → contraseña temporal en texto plano
-            if contraseña != invitado["contraseña_temporal"]:
+            if not check_password_hash(invitado["contraseña_temporal"], contraseña):
                 cur.close()
                 return render_template("login.html", error="Contraseña incorrecta.")
 

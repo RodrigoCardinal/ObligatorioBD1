@@ -4,9 +4,9 @@ import pymysql
 
 # Configura tu conexión
 conn = pymysql.connect(
-    host="127.0.0.1",
+    host="localhost",
     user="root",
-    password="root", 
+    password="tu_contraseña",
     database="ObligatorioBD1"
 )
 cur = conn.cursor(pymysql.cursors.DictCursor)
