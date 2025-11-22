@@ -27,7 +27,7 @@ print("Static dir:", os.path.abspath(app.static_folder))
 
 app.config['MYSQL_HOST'] = 'localhost'
 app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'root'
+app.config['MYSQL_PASSWORD'] = 'tu_contraseña'
 app.config['MYSQL_DB'] = 'ObligatorioBD1'
 
 mysql = MySQL(app)
