@@ -36,10 +36,12 @@ Luego deberá ejecutar, en este orden:
 
 ### app.py
 En la línea 30 cambiar:
+
 app.config['MYSQL_PASSWORD'] = 'tu_contraseña'
 
 ### hash_password.py
 En linea 9 cambiar:
+
 password='tu_contraseña'
 
 ## Ejecución del proyecto
