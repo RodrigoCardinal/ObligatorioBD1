@@ -6,7 +6,7 @@ import pymysql
 conn = pymysql.connect(
     host="localhost",
     user="root",
-    password="tu_contraseña",
+    password="root",
     database="ObligatorioBD1"
 )
 cur = conn.cursor(pymysql.cursors.DictCursor)
