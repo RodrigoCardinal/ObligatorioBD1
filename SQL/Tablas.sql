@@ -97,4 +97,11 @@ CREATE TABLE ObligatorioBD1.invitados(
     FOREIGN KEY (responsable_ci) REFERENCES participante(ci)
 );
 
+CREATE TABLE ObligatorioBD1.reserva_invitado(
+    ci_invitado INT,
+    id_reserva INT,
+    PRIMARY KEY (ci_invitado,id_reserva),
+    FOREIGN KEY (ci_invitado) REFERENCES invitados(ci_invitado),
+    FOREIGN KEY (id_reserva) REFERENCES reserva(id_reserva)
+);
 

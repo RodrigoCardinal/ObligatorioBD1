@@ -119,91 +119,159 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
     # ============================================================
-    # OBTENER CI DEL USUARIO
+    # OBTENER PARTICIPANTES DEL FORMULARIO (si es creación)
     # ============================================================
-    ci = session["usuario"]["ci"]
-    if ci is None:
-        flash("Tu correo no tiene CI asociado en participante.", "danger")
-        return redirect(url_for("reservas_listado"))
-
-    # ========================================================================
-    # No permitir reservar o unirse a una reserva si tiene una sanción activa
-    # ========================================================================
-    cur.execute("""
-                SELECT fecha_inicio, fecha_fin
-                FROM sancion_participante
-                WHERE ci_participante = %s
-                  AND CURDATE() BETWEEN fecha_inicio and fecha_fin
-                """, (ci,))
-    hay_sancion = cur.fetchone()
-
-    if hay_sancion:
-        fecha_fin = hay_sancion["fecha_fin"]
-        cur.close()
-        flash(f"Usted tiene una sanción activa hasta {fecha_fin}.", "danger")
-        return redirect(url_for("reservas_listado"))
-
-    # ============================================================
-    # VALIDAR TIPO DE SALA vs TIPO DE USUARIO (crear o unirse)
-    # ============================================================
-
-    # --- Obtener tipo de sala ---
-    cur.execute("""
-                SELECT tipo_sala
-                FROM sala
-                WHERE nombre_sala = %s
-                  AND edificio = %s
-                """, (nombre_sala, edificio))
-    row = cur.fetchone()
-
-    if not row:
-        cur.close()
-        flash("No se pudo determinar el tipo de sala.", "danger")
-        return redirect(url_for("reservas_listado"))
-
-    tipo_sala = row["tipo_sala"]
-
-    # --- Obtener roles del usuario ---
-    cur.execute("""
-                SELECT pp.rol, pa.tipo
-                FROM participante_programa_academico pp
-                         JOIN programa_academico pa
-                              ON pp.nombre_programa = pa.nombre_programa
-                WHERE pp.ci_participante = %s
-                """, (ci,))
-    roles = cur.fetchall()
-
-    # --- Determinar tipo de usuario ---
-    es_docente = any(r["rol"] == "docente" for r in roles)
-    es_posgrado = any(r["rol"] == "alumno" and r["tipo"] == "posgrado" for r in roles)
-
-    if es_docente:
-        tipo_user = "docente"
-    elif es_posgrado:
-        tipo_user = "alumno_posgrado"
+    participantes_raw = request.form.get("participantes", "")
+    participantes_form = [ci.strip() for ci in participantes_raw.split(",") if ci.strip()]
+    
+    # Si es creación, validar todos los participantes del formulario
+    # Si es unirse, solo validar al usuario logueado
+    if id_reserva is None and participantes_form:
+        # Crear reserva: validar todos los participantes
+        cis_a_validar = participantes_form
     else:
-        tipo_user = "alumno_grado"
+        # Unirse: solo validar al usuario logueado
+        cis_a_validar = [session["usuario"]["ci"]]
 
-    # --- Compatibilidades ---
-    compatibles = {
-        "libre": ["docente", "alumno_grado", "alumno_posgrado"],
-        "posgrado": ["alumno_posgrado"],
-        "docente": ["docente"]
-    }
+    # ============================================================
+    # VALIDAR CADA PARTICIPANTE
+    # ============================================================
+    for ci in cis_a_validar:
+        if ci is None:
+            flash("Uno de los participantes no tiene CI asociado.", "danger")
+            return redirect(url_for("reservas_listado"))
 
-    if tipo_user not in compatibles.get(tipo_sala, []):
-        cur.close()
-        flash("No estás autorizado para usar este tipo de sala.", "danger")
+        # ========================================================================
+        # No permitir reservar o unirse a una reserva si tiene una sanción activa
+        # ========================================================================
+        cur.execute("""
+                    SELECT fecha_inicio, fecha_fin
+                    FROM sancion_participante
+                    WHERE ci_participante = %s
+                      AND CURDATE() BETWEEN fecha_inicio and fecha_fin
+                    """, (ci,))
+        hay_sancion = cur.fetchone()
 
-        if id_reserva is None:
-            return redirect(url_for(
-                "reservas_crear",
-                edificio=edificio,
-                nombre_sala=nombre_sala,
-                fecha=fecha
-            ))
+        if hay_sancion:
+            fecha_fin = hay_sancion["fecha_fin"]
+            cur.close()
+            flash(f"El participante {ci} tiene una sanción activa hasta {fecha_fin}.", "danger")
+            return redirect(url_for("reservas_listado"))
+
+        # ============================================================
+        # VALIDAR TIPO DE SALA vs TIPO DE USUARIO (crear o unirse)
+        # ============================================================
+
+        # --- Obtener tipo de sala ---
+        cur.execute("""
+                    SELECT tipo_sala
+                    FROM sala
+                    WHERE nombre_sala = %s
+                      AND edificio = %s
+                    """, (nombre_sala, edificio))
+        row = cur.fetchone()
+
+        if not row:
+            cur.close()
+            flash("No se pudo determinar el tipo de sala.", "danger")
+            return redirect(url_for("reservas_listado"))
+
+        tipo_sala = row["tipo_sala"]
+
+        # --- Obtener roles del usuario ---
+        cur.execute("""
+                    SELECT pp.rol, pa.tipo
+                    FROM participante_programa_academico pp
+                             JOIN programa_academico pa
+                                  ON pp.nombre_programa = pa.nombre_programa
+                    WHERE pp.ci_participante = %s
+                    """, (ci,))
+        roles = cur.fetchall()
+
+        # --- Determinar tipo de usuario ---
+        es_docente = any(r["rol"] == "docente" for r in roles)
+        es_posgrado = any(r["rol"] == "alumno" and r["tipo"] == "posgrado" for r in roles)
+
+        if es_docente:
+            tipo_user = "docente"
+        elif es_posgrado:
+            tipo_user = "alumno_posgrado"
         else:
-            return redirect(url_for("reserva_detalle", hashed_id=id_reserva))
+            tipo_user = "alumno_grado"
+
+        # --- Compatibilidades ---
+        compatibles = {
+            "libre": ["docente", "alumno_grado", "alumno_posgrado"],
+            "posgrado": ["alumno_posgrado"],
+            "docente": ["docente"]
+        }
+
+        if tipo_user not in compatibles.get(tipo_sala, []):
+            cur.close()
+            flash(f"El participante {ci} no está autorizado para usar este tipo de sala.", "danger")
+
+            if id_reserva is None:
+                return redirect(url_for(
+                    "reservas_crear",
+                    edificio=edificio,
+                    nombre_sala=nombre_sala,
+                    fecha=fecha
+                ))
+            else:
+                return redirect(url_for("reserva_detalle", hashed_id=id_reserva))
+
+        # ============================================================
+        # Limitaciones para estudiantes de grado
+        # ============================================================
+        if tipo_user == "alumno_grado":
+            # --- 2) Límite semanal (máximo 3 activas)
+            cur.execute("""
+                        SELECT COUNT(*) AS total
+                        FROM reserva r
+                                 JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
+                        WHERE rp.ci_participante = %s
+                          AND r.estado = 'activa'
+                          AND YEARWEEK(r.fecha, 1) = YEARWEEK(%s, 1)
+                        """, (ci, fecha))
+
+            row = cur.fetchone()
+            total = row["total"]
+
+            if total >= 3:
+                cur.close()
+                flash(f"El participante {ci} ya tiene 3 reservas activas en la semana.", "danger")
+
+                if id_reserva is None:  # creando
+                    return redirect(url_for("reservas_crear",
+                                            edificio=edificio,
+                                            nombre_sala=nombre_sala,
+                                            fecha=fecha))
+                else:  # uniéndose
+                    return redirect(url_for("reserva_detalle", hashed_id=id_reserva))
+
+            # --- 3) Límite diario: máximo 2 reservas
+            cur.execute("""
+                        SELECT COUNT(*) AS total
+                        FROM reserva r
+                                 JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
+                        WHERE rp.ci_participante = %s
+                          AND r.estado = 'activa'
+                          AND r.fecha = %s
+                        """, (ci, fecha))
+
+            row = cur.fetchone()
+            total = row["total"] if row else 0
+
+            if total >= 2:
+                cur.close()
+                flash(f"El participante {ci} ya tiene 2 reservas activas ese día.", "danger")
+                if id_reserva is None:  # creando
+                    return redirect(url_for("reservas_crear",
+                                            edificio=edificio,
+                                            nombre_sala=nombre_sala,
+                                            fecha=fecha))
+                else:  # uniéndose
+                    return redirect(url_for("reserva_detalle", hashed_id=id_reserva))
 
     # ============================================================
     #  VALIDACIÓN OBLIGATORIA: NO PERMITIR RESERVAS PASADAS
@@ -293,74 +361,44 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
                 nombre_sala=nombre_sala,
                 fecha=fecha
             ))
-    # Limitaciones para estudiantes de grado
-    if tipo_user == "alumno_grado":
-        # --- 2) Límite semanal (máximo 3 activas + sin asistencia)
-        # print("DEBUG — CI:", ci)
-        # print("DEBUG — Fecha nueva reserva:", fecha)
+    
+    # ============================================================
+    # VALIDAR CAPACIDAD AL CREAR RESERVA
+    # ============================================================
+    if id_reserva is None:
 
+        # Obtener capacidad de la sala
         cur.execute("""
-                    SELECT r.id_reserva, r.fecha, r.estado
-                    FROM reserva r
-                             JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
-                    WHERE rp.ci_participante = %s
-                    ORDER BY r.fecha DESC
-                    """, (ci,))
-        # print("DEBUG — Todas sus reservas:", cur.fetchall())
+            SELECT capacidad
+            FROM sala
+            WHERE edificio = %s AND nombre_sala = %s
+        """, (edificio, nombre_sala))
+        sala_row = cur.fetchone()
 
-        cur.execute("""
-                    SELECT COUNT(*) AS total
-                    FROM reserva r
-                             JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
-                    WHERE rp.ci_participante = %s
-                      AND r.estado = 'activa'
-                      AND YEARWEEK(r.fecha, 1) = YEARWEEK(%s, 1)
-                    """, (ci, fecha))
-
-        row = cur.fetchone()
-        total = row["total"]
-
-        if total >= 3:
+        if not sala_row:
             cur.close()
-            flash("No podés participar en más de 3 reservas activas en la semana.", "danger")
+            flash("No se encontró la sala.", "danger")
+            return redirect(url_for("reservas_crear", edificio=edificio,
+                                    nombre_sala=nombre_sala, fecha=fecha))
 
-            if id_reserva is None:  # creando
-                return redirect(url_for("reservas_crear",
-                                        edificio=edificio,
-                                        nombre_sala=nombre_sala,
-                                        fecha=fecha))
-            else:  # uniéndose
-                return redirect(url_for("reserva_detalle", hashed_id=id_reserva))
+        capacidad = sala_row["capacidad"]
 
-        # --- 3) Límite diario: máximo 2 reservas
-        cur.execute("""
-                    SELECT COUNT(*) AS total
-                    FROM reserva r
-                             JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
-                    WHERE rp.ci_participante = %s
-                      AND r.estado = 'activa'
-                      AND r.fecha = %s
-                    """, (ci, fecha))
+        # Usar los participantes ya procesados al inicio
+        total_previsto = len(participantes_form)
 
-        row = cur.fetchone()
-        total = row["total"] if row else 0
-
-        if total >= 2:
+        if total_previsto > capacidad:
             cur.close()
-            flash("No podés participar en más de 2 reservas por día.", "danger")
-            if id_reserva is None:  # creando
-                return redirect(url_for("reservas_crear",
-                                        edificio=edificio,
-                                        nombre_sala=nombre_sala,
-                                        fecha=fecha))
-            else:  # uniéndose
-                return redirect(url_for("reserva_detalle", hashed_id=id_reserva))
+            flash(f"La sala tiene capacidad para {capacidad} personas y estás intentando agregar {total_previsto}.", "danger")
+            return redirect(url_for("reservas_crear", edificio=edificio,
+                                    nombre_sala=nombre_sala, fecha=fecha))
 
     # ============================================================
     # VALIDACIONES EXTRA AL UNIRSE (id_reserva != None)
     # ============================================================
     if id_reserva is not None:
-        print("### Verificador EJECUTADO ###")
+
+        # Obtener CI del usuario que se quiere unir
+        ci = session["usuario"]["ci"]
 
         # --- A) Verificar existencia de la reserva ---
         cur.execute("SELECT clave_reserva FROM reserva WHERE id_reserva=%s",
@@ -378,18 +416,18 @@ def verificador(edificio, nombre_sala, fecha, id_turno, id_reserva=None, clave_i
         if not check_password_hash(clave_correcta, clave_ingresa):
             cur.close()
             flash("Tenés que ingresar la contraseña de la reserva.", "danger")
-            return redirect(url_for("reserva_detalle", hahed_id=id_reserva))
+            return redirect(url_for("reserva_detalle", hashed_id=id_reserva))
 
 
         # --- Verificar capacidad ---
         cur.execute("""
-                    SELECT COUNT(rp.ci_participante) AS actuales, s.capacidad
-                    FROM reserva r
-                             JOIN sala s ON r.nombre_sala = s.nombre_sala
-                        AND r.edificio = s.edificio
-                             LEFT JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
-                    WHERE r.id_reserva = %s
-                    """, (id_reserva,))
+                        SELECT COUNT(rp.ci_participante) AS actuales, s.capacidad
+                        FROM reserva r
+                                JOIN sala s ON r.nombre_sala = s.nombre_sala
+                            AND r.edificio = s.edificio
+                                LEFT JOIN reserva_participante rp ON r.id_reserva = rp.id_reserva
+                        WHERE r.id_reserva = %s
+                        """, (id_reserva,))
         datos_cap = cur.fetchone()
 
         if datos_cap["actuales"] >= datos_cap["capacidad"]:
@@ -985,7 +1023,7 @@ def reserva_detalle(hashed_id):
     # Agregar hash al resultado
     r['id_hash'] = hashed_id
 
-    # --- Participantes de la reserva ---
+    # --- Participantes registrados en la facultad de la reserva ---
     cur.execute("""
                 SELECT p.ci, CONCAT(p.nombre, ' ', p.apellido) AS nombre, rp.asistencia
                 FROM reserva_participante rp
@@ -993,7 +1031,23 @@ def reserva_detalle(hashed_id):
                 WHERE rp.id_reserva = %s
                 ORDER BY p.apellido, p.nombre
                 """, (id_reserva, ))
-    participantes = cur.fetchall()
+    participantes_facultad = list(cur.fetchall())
+
+    # --- Invitados ---
+    cur.execute("""
+        SELECT 
+            ri.ci_invitado AS ci,
+            CONCAT(i.nombre_invitado, ' ', i.apellido_invitado) AS nombre,
+            'invitado' AS tipo
+        FROM reserva_invitado ri
+        JOIN invitados i ON i.ci_invitado = ri.ci_invitado
+        WHERE ri.id_reserva = %s AND ri.ci_invitado IS NOT NULL
+        ORDER BY nombre
+    """, (id_reserva,))
+    participantes_invitados = list(cur.fetchall())
+
+    # Unimos ambos
+    participantes = participantes_facultad + participantes_invitados
 
     # --- Verificar si el usuario actual forma parte de la reserva ---
     cur.execute("""
@@ -1036,10 +1090,14 @@ def reservas_eliminar(hashed_id):
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
     # Borramos participantes primero por FK
-    cur.execute("DELETE FROM reserva_participante WHERE id_reserva=%s", (id_reserva, ))
+    # Borrar invitados
+    cur.execute("DELETE FROM reserva_invitado WHERE id_reserva=%s", (id_reserva,))
 
-    # Borramos la reserva
-    cur.execute("DELETE FROM reserva WHERE id_reserva=%s", (id_reserva, ))
+    # Borrar participantes internos
+    cur.execute("DELETE FROM reserva_participante WHERE id_reserva=%s", (id_reserva,))
+
+    # Borrar reserva
+    cur.execute("DELETE FROM reserva WHERE id_reserva=%s", (id_reserva,))
     mysql.connection.commit()
     cur.close()
 
@@ -1203,14 +1261,29 @@ def reservas_editar(hashed_id):
     turnos = cur.fetchall()
 
     # Obtener participantes de la reserva
+    # Participantes internos
     cur.execute("""
-        SELECT p.ci, CONCAT(p.nombre, ' ', p.apellido) AS nombre
+        SELECT p.ci,
+            CONCAT(p.nombre, ' ', p.apellido) AS nombre,
+            'interno' AS tipo
         FROM reserva_participante rp
         JOIN participante p ON p.ci = rp.ci_participante
         WHERE rp.id_reserva = %s
-        ORDER BY p.apellido, p.nombre
     """, (id_reserva,))
-    participantes = cur.fetchall()
+    participantes = list(cur.fetchall())
+
+    # Invitados
+    cur.execute("""
+        SELECT i.ci_invitado AS ci,
+            CONCAT(i.nombre_invitado, ' ', i.apellido_invitado) AS nombre,
+            'invitado' AS tipo
+        FROM reserva_invitado ri
+        JOIN invitados i ON i.ci_invitado = ri.ci_invitado
+        WHERE ri.id_reserva = %s
+    """, (id_reserva,))
+    invitados = list(cur.fetchall())
+
+    participantes = participantes + invitados
 
     cur.close()
 
@@ -1255,16 +1328,24 @@ def reservas_eliminar_participante(hashed_id, ci):
 
     # Contar participantes actuales
     cur.execute("""
-        SELECT COUNT(*) AS total
-        FROM reserva_participante
-        WHERE id_reserva = %s
-    """, (id,))
+        SELECT 
+            (SELECT COUNT(*) FROM reserva_participante WHERE id_reserva=%s) +
+            (SELECT COUNT(*) FROM reserva_invitado WHERE id_reserva=%s)
+            AS total
+    """, (id, id))
     total = cur.fetchone()["total"]
 
     # Eliminar al participante
+    # Eliminar interno
     cur.execute("""
         DELETE FROM reserva_participante
         WHERE id_reserva = %s AND ci_participante = %s
+    """, (id, ci))
+
+    # Eliminar invitado
+    cur.execute("""
+        DELETE FROM reserva_invitado
+        WHERE id_reserva = %s AND ci_invitado = %s
     """, (id, ci))
 
     # Si era el último participante, cancelar la reserva
@@ -1295,21 +1376,26 @@ def baja_reserva(hashed_id):
 
     cur = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
 
-    # Ver cuántos participantes hay en la reserva
+    # Contar todos los participantes
     cur.execute("""
-                SELECT COUNT(*) AS total
-                FROM reserva_participante
-                WHERE id_reserva = %s
-                """, (id_reserva,))
+        SELECT 
+            (SELECT COUNT(*) FROM reserva_participante WHERE id_reserva=%s) +
+            (SELECT COUNT(*) FROM reserva_invitado WHERE id_reserva=%s)
+            AS total
+    """, (id_reserva, id_reserva))
     total = cur.fetchone()["total"]
 
-    # Eliminar al usuario actual de la reserva
+    # Eliminar interno
     cur.execute("""
-                DELETE
-                FROM reserva_participante
-                WHERE id_reserva = %s
-                  AND ci_participante = %s
-                """, (id_reserva, user_ci))
+        DELETE FROM reserva_participante
+        WHERE id_reserva = %s AND ci_participante = %s
+    """, (id_reserva, user_ci))
+
+    # Eliminar invitado (por si el usuario era invitado)
+    cur.execute("""
+        DELETE FROM reserva_invitado
+        WHERE id_reserva = %s AND ci_invitado = %s
+    """, (id_reserva, user_ci))
 
     # Si era el único participante → cancelar la reserva
     if total == 1:
@@ -1344,11 +1430,38 @@ def reservas_crear():
         id_turno = request.form.get("id_turno", type=int)
         clave_reserva = request.form.get("clave_reserva")
 
+        # Lista de CIs ingresadas en el formulario (pueden ser varias o ninguna)
+        participantes_raw = request.form.get("participantes", "")
+        ci_list = [ci.strip() for ci in participantes_raw.split(",") if ci.strip()]
+
+        usuario = session["usuario"]
+        es_admin = usuario.get("es_administrador", False)
+        print("DEBUG es_admin:", session["usuario"].get("es_administrador"))
+        ci_usuario = usuario.get("ci")
+
+
         if not (edificio and nombre_sala and fecha and id_turno and clave_reserva):
             flash("Faltan datos para crear la reserva (incluida la contraseña).", "danger")
             return redirect(url_for("reservas_crear", edificio=edificio, nombre_sala=nombre_sala, fecha=fecha))
+        
+        #Validación de participantes según rol
+        if not es_admin:
+        # Usuario común  DEBE agregarse él mismo sí o sí
+            if not ci_usuario:
+                flash("Tu usuario no tiene CI asociado, no puedes crear reservas.", "danger")
+                return redirect(url_for("reservas_crear",
+                                        edificio=edificio,
+                                        nombre_sala=nombre_sala,
+                                        fecha=fecha))
 
-        # <-- LLAMADA AL VERIFICADOR: manejar su respuesta correctamente
+            # Se agrega obligatoriamente a la lista
+            if ci_usuario not in ci_list:
+                ci_list.append(ci_usuario)
+        else:
+            # Admin: si tiene CI y quiere agregarse, deberá escribirla manualmente
+            pass
+
+        # LLAMADA AL VERIFICADOR
         reserva_validada = verificador(edificio, nombre_sala, fecha, id_turno)
         if reserva_validada is not True:
             # verificador devolvió un redirect/Response; devolverlo inmediatamente
@@ -1364,6 +1477,7 @@ def reservas_crear():
                     VALUES (%s, %s, %s, %s, 'activa', %s)
                     """, (nombre_sala, edificio, fecha, id_turno, clave_hasheada))
 
+        #obtener el ID de la reserva recién agregada
         cur.execute(""" 
                     SELECT id_reserva 
                     FROM reserva 
@@ -1372,14 +1486,14 @@ def reservas_crear():
         id_reserva = cur.fetchone()["id_reserva"]
 
 
-        # Auto-agregar usuario logueado si existe en participante
-        ci = session["usuario"]["ci"]
-        if ci:
-            cur.execute("""
-                INSERT IGNORE INTO reserva_participante 
-                    (ci_participante, id_reserva, fecha_solicitud_reserva, asistencia)
-                VALUES (%s, %s, %s, false)
-            """, (ci, id_reserva, date.today()))
+        # Agregar usuarios finales a la reserva
+        for ci in ci_list: 
+            if ci:
+                cur.execute("""
+                    INSERT IGNORE INTO reserva_participante 
+                        (ci_participante, id_reserva, fecha_solicitud_reserva, asistencia)
+                    VALUES (%s, %s, %s, false)
+                """, (ci, id_reserva, date.today()))
 
         mysql.connection.commit()
         cur.close()
@@ -1496,11 +1610,18 @@ def reservas_unirse():
     if verifica_validez is not True:
         return verifica_validez
     else:
-        cur.execute("""
-                    INSERT INTO reserva_participante (ci_participante, id_reserva, fecha_solicitud_reserva, asistencia)
-                    VALUES (%s, %s, %s, false)
-                    """, (ci, id_reserva, date.today()))
-        mysql.connection.commit()
+        if not session["usuario"].get("es_invitado"):
+            cur.execute("""
+                        INSERT INTO reserva_participante (ci_participante, id_reserva, fecha_solicitud_reserva, asistencia)
+                        VALUES (%s, %s, %s, false)
+                        """, (ci, id_reserva, date.today()))
+            mysql.connection.commit()
+        else:
+            cur.execute("""
+                        INSERT INTO reserva_invitado (ci_invitado, id_reserva)
+                        VALUES (%s, %s)
+                        """, (ci, id_reserva))
+            mysql.connection.commit()
         cur.close()
 
         flash("Te uniste a la reserva.", "success")
@@ -1534,7 +1655,7 @@ def asistencia_index():
             TIME_FORMAT(t.hora_fin, '%H:%i') AS hora_fin
         FROM reserva r
         JOIN turno t ON t.id_turno = r.id_turno
-        WHERE r.fecha = CURDATE()
+        WHERE r.fecha = CURDATE() and r.estado = 'activa
         ORDER BY t.hora_inicio
     """)
     reservas_hoy = cur.fetchall()

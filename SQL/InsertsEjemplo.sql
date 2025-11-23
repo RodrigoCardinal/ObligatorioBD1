@@ -109,3 +109,8 @@ INSERT INTO ObligatorioBD1.invitados(ci_invitado,responsable_ci,nombre_invitado,
 (56784229,51293487,'Ana','Gonzalez','ana.gonzalez@gmail.com','prueba','2025-11-18'),
 (93245881,48927153,'Juliana','Mendez','juliana.mendez@gmail.com','prueba','2025-11-19');
 
+-- Tabla: reserva_invitado
+INSERT ObligatorioBD1.reserva_invitado(ci_invitado, id_reserva) VALUES
+(43459814, 1),
+(56784229, 4),
+(93245881, 6);
