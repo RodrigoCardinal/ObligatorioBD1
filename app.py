@@ -597,16 +597,34 @@ def salas_listado():
     tipos = [r["tipo_sala"] for r in cur.fetchall()]
 
     sql = "SELECT nombre_sala, edificio, capacidad, tipo_sala FROM sala"
+    filtros = []
     params = []
-    if edificio:   sql += " AND edificio=%s";      params.append(edificio)
-    if tipo_sala:  sql += " AND tipo_sala=%s";     params.append(tipo_sala)
-    if cap_min:    sql += " AND capacidad >= %s";  params.append(cap_min)
+
+    if edificio:
+        filtros.append("edificio = %s")
+        params.append(edificio)
+
+    if tipo_sala:
+        filtros.append("tipo_sala = %s")
+        params.append(tipo_sala)
+
+    if cap_min:
+        filtros.append("capacidad >= %s")
+        params.append(cap_min)
+
+    # Si hay filtros, se agregan al SQL
+    if filtros:
+        sql += " WHERE " + " AND ".join(filtros)
+
     sql += " ORDER BY edificio, nombre_sala"
 
+    # Ejecutamos
     cur.execute(sql, tuple(params))
     salas = cur.fetchall()
+
     for s in salas:
         s["img"] = _imagen_sala_url(s["nombre_sala"])
+
     cur.close()
 
     return render_template("salas.html", salas=salas, edificios=edificios, tipos=tipos)
