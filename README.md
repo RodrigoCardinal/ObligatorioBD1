@@ -52,6 +52,8 @@ python hash_password.py
 Luego iniciar la aplicación:
 python app.py
 
+Al ejecutar el archivo app.py, la aplicación se iniciará y te mostrará la dirección http://127.0.0.1:5000. Debés ingresar a esa URL desde tu navegador para acceder al sistema.
+
 Por último, ¡ingrese al sistema!
 
 ## Autores
