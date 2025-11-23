@@ -2044,10 +2044,10 @@ def reportes_index():
     elif tipo == 'reservas_usadas':
         cur.execute("""
             SELECT
-                IF(estado IN ('activa', 'finalizada'), 'Utilizadas', 'No utilizadas') AS estado_actuales,
+                IF(estado IN ('activa', 'finalizada'), 'Utilizadas', 'No utilizadas') AS estados_actuales,
                 COUNT(*) / (SELECT COUNT(*) FROM reserva) * 100 AS porcentaje
             FROM reserva
-            GROUP BY estado_actuales
+            GROUP BY estados_actuales
         """)
         usadas = cur.fetchall()
 
